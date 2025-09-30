@@ -111,7 +111,7 @@
             <div id="retro-card" class="p-5 rounded-lg mb-8 text-left border-2 border-dashed">
                 <h3 class="text-xl font-bold mb-2">Retroalimentación:</h3>
                 <p id="performance-message" class="text-gray-700"></p>
-                <p id="reinforce-message" class="mt-2 text-sm text-gray-500 italic">Puntos a reforzar: <span id="reinforce-topics"></span></p>
+                <p id="reinforce-message" class="mt-2 text-sm text-gray-500 italic">Temas clave a reforzar: <span id="reinforce-topics"></span></p>
             </div>
 
             <!-- Botón para Renovar Preguntas (API) -->
@@ -371,30 +371,29 @@
         });
 
         /**
-         * Genera el mensaje de retroalimentación basado en el puntaje.
+         * Genera el mensaje de retroalimentación basado en el puntaje, con lenguaje académico.
          */
         function getFeedbackMessage(score, total) {
             const percentage = (score / total) * 100;
 
             if (percentage === 100) {
                 return {
-                    message: "¡Rendimiento sobresaliente! Has internalizado la TCCR a nivel de **Cognosistema**. Tu **Actitud Epistémica** es coherente y rigurosa. ¡Felicidades!",
+                    message: "¡Rendimiento sobresaliente! Ha demostrado una comprensión completa de los pilares de la TCCR. Su **Evaluación Cognitiva** de la metateoría es rigurosa y su entendimiento del **Cognosistema** es impecable.",
                     color: 'tccr-success',
-                    topics: 'Ninguno, mantén tu enfoque.'
                 };
             } else if (percentage >= 80) {
                 return {
-                    message: "¡Excelente desempeño! Tu **Evaluación Cognitiva** de la TCCR es muy sólida. Solo necesitas afinar pequeños detalles para alcanzar la perfección narrativa.",
+                    message: "¡Excelente desempeño! El dominio de la TCCR es muy sólido. La mayoría de los conceptos clave, como la **Ontología Sistémico-Relacional** y los **Memes Cognosistémicos**, están bien internalizados. Un pequeño ajuste en los temas señalados le permitirá la maestría total.",
                     color: 'tccr-primary',
                 };
             } else if (percentage >= 60) {
                 return {
-                    message: "Buen intento. Estás en **Fase Alfa** (crisis constructiva). Tienes la base, pero hay fricciones en tus **sistemas narrativos**. Revisa los temas fallidos para pasar a **Fase Delta** (transformación).",
+                    message: "Resultado aceptable, pero necesita reforzar la interconexión conceptual. Existe una buena base, pero hay debilidades puntuales en temas específicos de la **Epistemología Cognosistémica** o la **Estructura Narrativa**. Es esencial profundizar en los temas señalados para un dominio más coherente.",
                     color: 'tccr-warning',
                 };
             } else {
                 return {
-                    message: "Necesitas una **reorganización narrativa** profunda. Este es un buen momento para una **Fase Delta**: vuelve a leer los fundamentos. Tu comprensión de la **Ontología Sistémico-Relacional** requiere refuerzo.",
+                    message: "El puntaje sugiere la necesidad de revisar los fundamentos teóricos de la TCCR. Recomendamos estudiar con especial atención la **Tripleta TCCR** (Ontología, Epistemología, Metodología) y el rol del **Cognosistema**. Los conceptos aún no se han estructurado coherentemente.",
                     color: 'tccr-accent',
                 };
             }
@@ -437,8 +436,12 @@
             reinforceTopics.textContent = reinforcement;
             
             const retroCard = document.getElementById('retro-card');
-            retroCard.className = `p-5 rounded-lg mb-8 text-left border-2 border-dashed border-${feedback.color}`;
-            performanceMessage.classList.add(`text-${feedback.color}`);
+            // Aseguramos que la clase de color sea dinámica para el borde
+            retroCard.className = `p-5 rounded-lg mb-8 text-left border-2 border-dashed border-tccr-${feedback.color.split('-').pop()}`; 
+            
+            // Esto solo cambia el color del texto si el color es primary, success, warning o accent
+            const colorClass = feedback.color.includes('tccr-') ? `text-${feedback.color}` : 'text-gray-700';
+            performanceMessage.classList.add(colorClass);
         }
 
         /**
@@ -454,6 +457,7 @@
         renewQuestionsButton.addEventListener('click', async () => {
             // Validar la clave API antes de intentar la llamada
             if (!apiKey || apiKey === "") {
+                // Usar custom modal en lugar de alert
                 alert('ERROR: La clave API no está configurada. Usa el set de preguntas estático hasta que la configures.');
                 currentQuestions = originalQuestions; // Fallback
                 startQuiz();
@@ -555,9 +559,9 @@
                 currentQuestions = newQuestions;
                 startQuiz(); // Iniciar la trivia con el nuevo set
                 // Usar custom modal en lugar de alert
-                alert('¡Éxito! Se han generado y cargado 10 nuevas preguntas sobre la TCCR desde el **Cognosistema** de la IA. ¡Comienza la nueva ronda!');
+                alert('¡Éxito! Se han generado y cargado 10 nuevas preguntas sobre la TCCR desde el Cognosistema de la IA. ¡Comienza la nueva ronda!');
             } else {
-                alert('ERROR: No fue posible generar un set de 10 preguntas nuevas después de varios intentos. La trivia se reiniciará con el set estático de respaldo. Continúa tu **transformación narrativa** reintentando los temas.');
+                alert('ERROR: No fue posible generar un set de 10 preguntas nuevas después de varios intentos. La trivia se reiniciará con el set estático de respaldo. Continúa tu transformación narrativa reintentando los temas.');
                 currentQuestions = originalQuestions; // Fallback
                 startQuiz();
             }
