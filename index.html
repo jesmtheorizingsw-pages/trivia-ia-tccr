@@ -216,7 +216,8 @@
         let currentQuestionIndex = 0;
         let score = 0;
         const totalQuestions = 10;
-        const apiKey = ""; // La clave API debe ser proporcionada en el entorno de ejecución
+        // La clave API se deja vacía para que el entorno la inyecte automáticamente.
+        const apiKey = ""; 
 
         // --- REFERENCIAS DOM ---
         const quizContainer = document.getElementById('quiz-container');
@@ -254,6 +255,32 @@
             }
             return selected;
         };
+        
+        // Función para mostrar mensajes de error/éxito temporalmente
+        function displayCustomAlert(message) {
+            // Reutilizamos el feedback-message o creamos uno nuevo temporalmente
+            const tempAlert = document.createElement('div');
+            tempAlert.textContent = message;
+            tempAlert.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-xl text-white font-bold z-50 transition-all duration-300';
+            
+            if (message.includes('Éxito') || message.includes('cargado')) {
+                tempAlert.style.backgroundColor = '#059669'; // Verde
+            } else {
+                tempAlert.style.backgroundColor = '#DC2626'; // Rojo
+            }
+
+            document.body.appendChild(tempAlert);
+
+            setTimeout(() => {
+                tempAlert.style.opacity = '0';
+                tempAlert.style.transform = 'translate(-50%, -20px)';
+            }, 3000); // 3 segundos visible
+            
+            setTimeout(() => {
+                tempAlert.remove();
+            }, 3300); // Retirar después de la transición
+        }
+
 
         // --- LÓGICA DEL QUIZ ---
 
@@ -454,14 +481,9 @@
          * Implementa el requisito de "renovación constante".
          */
         renewQuestionsButton.addEventListener('click', async () => {
-            // Validar la clave API antes de intentar la llamada
-            if (!apiKey || apiKey === "") {
-                // Usar custom modal en lugar de alert
-                alert('ERROR: La clave API no está configurada. Usa el set de preguntas estático hasta que la configures.');
-                currentQuestions = originalQuestions; // Fallback
-                startQuiz();
-                return;
-            }
+            
+            // NOTA: Eliminamos la validación estricta de apiKey para evitar el mensaje de error en el editor.
+            // La llamada fallará si no hay clave, pero el bloque try/catch la manejará con un mensaje genérico.
 
             // Mostrar estado de carga
             renewText.textContent = 'Generando nuevas preguntas...';
@@ -470,7 +492,7 @@
             renewQuestionsButton.disabled = true;
             
             // --- CONTEXTO Y PROMPT PARA EL LLM ---
-            const systemPrompt = `Eres un experto académico riguroso en la "Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana" (TCCR) de Jalin Simunovic (2025). Tu tarea es generar 10 preguntas de opción múltiple (4 opciones, 1 correcta) sobre los fundamentos de la TCCR para estudiantes universitarios de Trabajo Social. Las preguntas deben ser rigurosas y específicas sobre el Cognosistema, la Tripleta TCCR (Ontología, Epistemología, Metodología), los 8 Elementos Narrativos (cuestionando cada uno por separado), las 5 etapas del Ciclo Vital Narrativo, la Movilidad Narrativa (Ascendente, Descendente, Horizontal), las Fases de Cambio (Beta, Alfa, Delta), y los Memes Cognosistémicos. IMPORTANTE: No uses símbolos de formato Markdown, incluyendo el doble asterisco (**), en ningún campo del JSON. El formato de respuesta DEBE ser un array JSON que se ajuste estrictamente al esquema proporcionado.`;
+            const systemPrompt = `Eres un experto académico riguroso en la "Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana" (TCCR) de Jalin Simunovic (2025). Tu tarea es generar 10 preguntas de opción múltiple (4 opciones, 1 correcta) sobre los fundamentos de la TCCR para estudiantes universitarios de Trabajo Social. Las preguntas deben ser rigurosas y específicas sobre el Cognosistema, la Tripleta TCCR (Ontología, Epistemología, Metodología), los 8 Elementos Narrativos (cuestionando cada uno por separado), las 5 etapas del Ciclo Vital Narrativo, la Movilidad Narrativa (Ascendente, Descendente, Horizontal), las Fases de Cambio (Beta, Alfa, Delta), y los Memes Cognosistémicos. IMPORTANTE: No uses símbolos de formato Markdown, incluyendo el doble asterisco, en ningún campo del JSON. El formato de respuesta DEBE ser un array JSON que se ajuste estrictamente al esquema proporcionado.`;
             
             const userQuery = `Genera 10 nuevas preguntas de trivia sobre la TCCR, cubriendo todos los temas fundamentales de forma balanceada. Asegúrate de incluir preguntas sobre cada uno de los 8 elementos del sistema narrativo (e.g., Contenido Proposicional, Actitud Epistémica), el Ciclo Vital Narrativo completo (5 etapas) y los tipos de Movilidad Narrativa (Ascendente, Descendente, Horizontal).`;
 
@@ -503,7 +525,8 @@
                     responseSchema: responseSchema
                 }
             };
-
+            
+            // Usamos la variable apiKey, que debería ser completada por el entorno Canvas.
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             
             // Lógica de Reintento con Retroceso Exponencial
@@ -559,9 +582,10 @@
                 currentQuestions = newQuestions;
                 startQuiz(); // Iniciar la trivia con el nuevo set
                 // Usar custom modal en lugar de alert
-                alert('¡Éxito! Se han generado y cargado 10 nuevas preguntas sobre la TCCR desde el Cognosistema de la IA. ¡Comienza la nueva ronda!');
+                displayCustomAlert('¡Éxito! Se han generado y cargado 10 nuevas preguntas sobre la TCCR desde el Cognosistema de la IA. ¡Comienza la nueva ronda!');
             } else {
-                alert('ERROR: No fue posible generar un set de 10 preguntas nuevas después de varios intentos. La trivia se reiniciará con el set estático de respaldo. Continúa tu transformación narrativa reintentando los temas.');
+                // Mensaje de fallback más suave
+                displayCustomAlert('Advertencia: No fue posible generar un set de 10 preguntas nuevas. La trivia se reiniciará con el set estático de respaldo.');
                 currentQuestions = originalQuestions; // Fallback
                 startQuiz();
             }
