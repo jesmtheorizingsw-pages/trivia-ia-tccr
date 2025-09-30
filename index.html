@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trivia Cognosistémica de la TCCR</title>
+    <title>Trivia Cognosistémica TCCR</title>
     <!-- Carga de Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Configuración de Tailwind y Fuente Inter -->
@@ -135,63 +135,63 @@
         // import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         
         // --- BASE DE PREGUNTAS ESTRUCTURADAS DE LA TCCR ---
-        // Se han agregado dos preguntas adicionales para completar los 10 temas principales, aunque el LLM idealmente proveerá el set completo.
+        // Se han eliminado los caracteres ** de las preguntas y feedback para cumplir con la solicitud.
         const TCCR_QUESTIONS = [
             {
                 question: "¿Cuál es el concepto central que la TCCR define como el 'suprasistema narrativo ecosistémico' que integra y conecta todos los sistemas narrativos (micro, meso, exo, macro y cronosistema)?",
                 options: ["Ontología Sistémico-Relacional", "Meme Cognosistémico", "Cognosistema", "Propósito Narrativo"],
                 answer: "Cognosistema",
                 topic: "Cognosistema / Niveles Ecosistémicos",
-                feedback: "Correcto. El **Cognosistema** es la megaestructura narrativa que da coherencia a la realidad psicosocial a través de múltiples niveles ecosistémicos."
+                feedback: "Correcto. El Cognosistema es la megaestructura narrativa que da coherencia a la realidad psicosocial a través de múltiples niveles ecosistémicos."
             },
             {
-                question: "Según la Tripleta TCCR, la dimensión que postula que la ontología del ser humano es el **vínculo** ('el ser humano es vínculo') corresponde a la:",
+                question: "Según la Tripleta TCCR, la dimensión que postula que la ontología del ser humano es el vínculo ('el ser humano es vínculo') corresponde a la:",
                 options: ["Epistemología Cognosistémica", "Metodología Ecosistémica-Narrativa", "Ontología Sistémico-Relacional", "Dinámica de Capas"],
                 answer: "Ontología Sistémico-Relacional",
                 topic: "Tripleta TCCR / Ontología",
-                feedback: "Correcto. La **Ontología Sistémico-Relacional** define al ser humano por su esencia vincular y relacional."
+                feedback: "Correcto. La Ontología Sistémico-Relacional define al ser humano por su esencia vincular y relacional."
             },
             {
-                question: "¿Cuál de las siguientes fases en la dinámica de cambio narrativo de la TCCR representa la etapa de **'reorganización/transformación'** del sistema narrativo?",
+                question: "¿Cuál de las siguientes fases en la dinámica de cambio narrativo de la TCCR representa la etapa de 'reorganización/transformación' del sistema narrativo?",
                 options: ["Fase Alfa", "Fase Beta", "Fase Omega", "Fase Delta"],
                 answer: "Fase Delta",
                 topic: "Fases de Cambio Narrativo",
-                feedback: "Correcto. La **Fase Delta** es la etapa post-crisis (Alfa) donde ocurre la reorganización y la transformación narrativa efectiva."
+                feedback: "Correcto. La Fase Delta es la etapa post-crisis (Alfa) donde ocurre la reorganización y la transformación narrativa efectiva."
             },
             {
                 question: "La TCCR establece una estructura básica de un sistema narrativo con ocho elementos. ¿Cuál de estos es una unidad de significado estratégico, intencionalmente creada, que vehiculiza y propaga narrativas a través de niveles ecosistémicos?",
                 options: ["Función Narrativa", "Actitud Epistémica", "Contenido Proposicional", "Meme Cognosistémico"],
                 answer: "Meme Cognosistémico",
                 topic: "Memes Cognosistémicos / Estructura Narrativa",
-                feedback: "Correcto. El **Meme Cognosistémico** es la unidad de diseño de incidencia para la transformación narrativa."
+                feedback: "Correcto. El Meme Cognosistémico es la unidad de diseño de incidencia para la transformación narrativa."
             },
             {
                 question: "La Epistemología Cognosistémica de la TCCR se define por la convergencia de dos enfoques principales para comprender narrativas interconectadas. ¿Cuáles son?",
                 options: ["Fenomenológico y Marxista", "Cognitivo y Sistémico", "Estructural y Positivista", "Funcionalista y Decolonial"],
                 answer: "Cognitivo y Sistémico",
                 topic: "Tripleta TCCR / Epistemología",
-                feedback: "Correcto. **Cognitivo + Sistémico** permite comprender cómo la mente construye y cómo el contexto relacional sostiene las narrativas (Epistemología Cognosistémica)."
+                feedback: "Correcto. Cognitivo + Sistémico permite comprender cómo la mente construye y cómo el contexto relacional sostiene las narrativas (Epistemología Cognosistémica)."
             },
             {
-                question: "En la Jerarquía de Narrativas, ¿qué tipo de narrativa se caracteriza por un alto nivel de **poder narrativo** y es la que define la versión de la realidad para un colectivo o Cognosistema?",
+                question: "En la Jerarquía de Narrativas, ¿qué tipo de narrativa se caracteriza por un alto nivel de poder narrativo y es la que define la versión de la realidad para un colectivo o Cognosistema?",
                 options: ["Narrativa Resignada", "Narrativa Desafiante", "Narrativa Adaptativa", "Narrativa Hegemónica"],
                 answer: "Narrativa Hegemónica",
                 topic: "Jerarquía de Narrativas / Poder Narrativo",
-                feedback: "Correcto. Las narrativas **Hegemónicas** son las dominantes y definitorias, en la cúspide de la jerarquía."
+                feedback: "Correcto. Las narrativas Hegemónicas son las dominantes y definitorias, en la cúspide de la jerarquía."
             },
             {
-                question: "La Metodología de Intervención de la TCCR es Ecosistémica-Narrativa. ¿Cuál es su **doble foco** de acción principal?",
+                question: "La Metodología de Intervención de la TCCR es Ecosistémica-Narrativa. ¿Cuál es su doble foco de acción principal?",
                 options: ["Individualización de problemas y reeducación", "Transformación relacional y justicia social", "Diagnóstico psiquiátrico y mediación legal", "Recolección de datos y análisis estadístico"],
                 answer: "Transformación relacional y justicia social",
                 topic: "Tripleta TCCR / Metodología",
-                feedback: "Correcto. La TCCR busca la **transformación relacional** (vínculo) y la **justicia** (macro) de forma articulada."
+                feedback: "Correcto. La TCCR busca la transformación relacional (vínculo) y la justicia (macro) de forma articulada."
             },
             {
-                question: "¿Cuál de los siguientes **NO** es uno de los 8 elementos de la Estructura Básica de un Sistema Narrativo?",
+                question: "¿Cuál de los siguientes NO es uno de los 8 elementos de la Estructura Básica de un Sistema Narrativo?",
                 options: ["Evaluación Cognitiva", "Propósito Narrativo", "Retroalimentación Positiva", "Actitud Epistémica"],
                 answer: "Retroalimentación Positiva",
                 topic: "8 Elementos Narrativos",
-                feedback: "Correcto. La **Retroalimentación Positiva** (o negativa) es parte de la *Dinámica* y *Flujos*, no un elemento estructural básico (los 8 elementos son: Experiencia, Percepciones/Emociones, Contexto, Contenido Proposicional, Evaluación Cognitiva, Actitud Epistémica, Propósito Narrativo y Función Narrativa)."
+                feedback: "Correcto. La Retroalimentación Positiva (o negativa) es parte de la Dinámica y Flujos, no un elemento estructural básico (los 8 elementos son: Experiencia, Percepciones/Emociones, Contexto, Contenido Proposicional, Evaluación Cognitiva, Actitud Epistémica, Propósito Narrativo y Función Narrativa)."
             },
             {
                 question: "El principio de la TCCR que establece que 'el ser humano es vínculo' y que los fenómenos sociales son un todo interrelacionado corresponde a:",
@@ -201,7 +201,7 @@
                 feedback: "Correcto. La Ontología Sistémico-Relacional es el fundamento de que la realidad humana es relacional."
             },
             {
-                question: "La **Fase Alfa** en la dinámica de cambio narrativo de la TCCR se caracteriza por:",
+                question: "La Fase Alfa en la dinámica de cambio narrativo de la TCCR se caracteriza por:",
                 options: ["Estabilidad y homeostasis", "Crisis y desestructuración narrativa", "Reorganización y transformación", "Consolidación de la narrativa hegemónica"],
                 answer: "Crisis y desestructuración narrativa",
                 topic: "Fases de Cambio Narrativo",
@@ -216,8 +216,7 @@
         let currentQuestionIndex = 0;
         let score = 0;
         const totalQuestions = 10;
-        // API Key insertada por solicitud del usuario
-        const apiKey = "AIzaSyDcSrf5qmddi3G3YdqmaQozqCzf8won3iA"; 
+        const apiKey = ""; // La clave API debe ser proporcionada en el entorno de ejecución
 
         // --- REFERENCIAS DOM ---
         const quizContainer = document.getElementById('quiz-container');
@@ -378,22 +377,22 @@
 
             if (percentage === 100) {
                 return {
-                    message: "¡Rendimiento sobresaliente! Ha demostrado una comprensión completa de los pilares de la TCCR. Su **Evaluación Cognitiva** de la metateoría es rigurosa y su entendimiento del **Cognosistema** es impecable.",
+                    message: "¡Rendimiento sobresaliente! Ha demostrado una comprensión completa de los pilares de la TCCR. Su Evaluación Cognitiva de la metateoría es rigurosa y su entendimiento del Cognosistema es impecable.",
                     color: 'tccr-success',
                 };
             } else if (percentage >= 80) {
                 return {
-                    message: "¡Excelente desempeño! El dominio de la TCCR es muy sólido. La mayoría de los conceptos clave, como la **Ontología Sistémico-Relacional** y los **Memes Cognosistémicos**, están bien internalizados. Un pequeño ajuste en los temas señalados le permitirá la maestría total.",
+                    message: "¡Excelente desempeño! El dominio de la TCCR es muy sólido. La mayoría de los conceptos clave, como la Ontología Sistémico-Relacional y los Memes Cognosistémicos, están bien internalizados. Un pequeño ajuste en los temas señalados le permitirá la maestría total.",
                     color: 'tccr-primary',
                 };
             } else if (percentage >= 60) {
                 return {
-                    message: "Resultado aceptable, pero necesita reforzar la interconexión conceptual. Existe una buena base, pero hay debilidades puntuales en temas específicos de la **Epistemología Cognosistémica** o la **Estructura Narrativa**. Es esencial profundizar en los temas señalados para un dominio más coherente.",
+                    message: "Resultado aceptable, pero necesita reforzar la interconexión conceptual. Existe una buena base, pero hay debilidades puntuales en temas específicos de la Epistemología Cognosistémica o la Estructura Narrativa. Es esencial profundizar en los temas señalados para un dominio más coherente.",
                     color: 'tccr-warning',
                 };
             } else {
                 return {
-                    message: "El puntaje sugiere la necesidad de revisar los fundamentos teóricos de la TCCR. Recomendamos estudiar con especial atención la **Tripleta TCCR** (Ontología, Epistemología, Metodología) y el rol del **Cognosistema**. Los conceptos aún no se han estructurado coherentemente.",
+                    message: "El puntaje sugiere la necesidad de revisar los fundamentos teóricos de la TCCR. Recomendamos estudiar con especial atención la Tripleta TCCR (Ontología, Epistemología, Metodología) y el rol del Cognosistema. Los conceptos aún no se han estructurado coherentemente.",
                     color: 'tccr-accent',
                 };
             }
@@ -471,9 +470,9 @@
             renewQuestionsButton.disabled = true;
             
             // --- CONTEXTO Y PROMPT PARA EL LLM ---
-            const systemPrompt = `Eres un experto académico riguroso en la "Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana" (TCCR) de Jalin Simunovic (2025). Tu tarea es generar 10 preguntas de opción múltiple (4 opciones, 1 correcta) sobre los fundamentos de la TCCR para estudiantes universitarios de Trabajo Social. Las preguntas deben ser rigurosas y específicas sobre: Cognosistema, Tripleta TCCR (Ontología, Epistemología, Metodología), 8 Elementos Narrativos, Fases de Cambio (Beta, Alfa, Delta), Jerarquía Narrativa y Memes Cognosistémicos. El formato de respuesta DEBE ser un array JSON que se ajuste estrictamente al esquema proporcionado.`;
+            const systemPrompt = `Eres un experto académico riguroso en la "Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana" (TCCR) de Jalin Simunovic (2025). Tu tarea es generar 10 preguntas de opción múltiple (4 opciones, 1 correcta) sobre los fundamentos de la TCCR para estudiantes universitarios de Trabajo Social. Las preguntas deben ser rigurosas y específicas sobre el Cognosistema, la Tripleta TCCR (Ontología, Epistemología, Metodología), los 8 Elementos Narrativos (cuestionando cada uno por separado), las 5 etapas del Ciclo Vital Narrativo, la Movilidad Narrativa (Ascendente, Descendente, Horizontal), las Fases de Cambio (Beta, Alfa, Delta), y los Memes Cognosistémicos. IMPORTANTE: No uses símbolos de formato Markdown, incluyendo el doble asterisco (**), en ningún campo del JSON. El formato de respuesta DEBE ser un array JSON que se ajuste estrictamente al esquema proporcionado.`;
             
-            const userQuery = `Genera 10 nuevas preguntas de trivia sobre la TCCR. Cubre los temas principales: Ontología, Epistemología, Metodología, Cognosistema, 8 Elementos Narrativos, Fases de Cambio (Beta, Alfa, Delta), Jerarquía Narrativa y Memes Cognosistémicos. Incluye en cada objeto un campo 'topic' que resuma el tema central de la pregunta (e.g., 'Cognosistema', 'Tripleta TCCR / Ontología', '8 Elementos Narrativos').`;
+            const userQuery = `Genera 10 nuevas preguntas de trivia sobre la TCCR, cubriendo todos los temas fundamentales de forma balanceada. Asegúrate de incluir preguntas sobre cada uno de los 8 elementos del sistema narrativo (e.g., Contenido Proposicional, Actitud Epistémica), el Ciclo Vital Narrativo completo (5 etapas) y los tipos de Movilidad Narrativa (Ascendente, Descendente, Horizontal).`;
 
             // --- ESTRUCTURA JSON REQUERIDA PARA LA TRIVIA ---
             const responseSchema = {
@@ -529,6 +528,7 @@
                     if (jsonText) {
                         newQuestions = JSON.parse(jsonText);
                         
+                        // Simple check to ensure we got an array of expected length
                         if (newQuestions && Array.isArray(newQuestions) && newQuestions.length === totalQuestions) {
                             success = true;
                             break; // Salir del bucle si es exitoso
