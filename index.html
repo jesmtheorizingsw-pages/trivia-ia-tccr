@@ -3,548 +3,2053 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trivia de la Teoría Cognosistémica (TCCR)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Configuración de Firebase - Variables Globales Mandatorias
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Default config if not provided */ };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        setLogLevel('Debug');
-        
-        let app;
-        let db;
-        let auth;
-        let userId = null;
-        let isAuthReady = false;
-
-        const STATE = {
-            questions: [],
-            currentQuestionIndex: 0,
-            score: 0,
-            showResult: false,
-            answered: false,
-            feedback: '',
-            incorrectTopics: {},
-            loading: false,
-            statusMessage: 'Cargando aplicación...',
-            dynamicQuestionsEnabled: true,
-            triviaId: 'TCCR-Quiz-1' // ID para el documento de guardado en Firestore
-        };
-
-        const staticQuestions = [
-            { question: "¿Cuál de los siguientes conceptos es la unidad analítica máxima de significación psicosocial en la TCCR?", options: ["Sistema Narrativo Cognosistémico (SNC)", "Meme Cognosistémico", "Cognosistema", "Autopoiesis Narrativa"], answer: "Cognosistema", topic: "Cognosistema" },
-            { question: "Según la TCCR, ¿Cuál de las siguientes fases describe la desestabilización discursiva causada por fricciones o crisis?", options: ["Fase Beta", "Fase Delta", "Fase Alfa", "Fase Resiliencia"], answer: "Fase Alfa", topic: "Dinámica de Cambio (Alfa, Beta, Delta)" },
-            { question: "En la estructura básica de un SNC, ¿qué elemento se define como las 'afirmaciones nucleares del relato'?", options: ["Propósito Narrativo", "Evaluación Cognitiva", "Actitud Epistémica", "Contenido Proposicional (Núcleo Narrativo)"], answer: "Contenido Proposicional (Núcleo Narrativo)", topic: "Sistemas Narrativos (8 Elementos)" },
-            { question: "¿Qué tipo de Meme Cognosistémico tiene como función introducir tensiones y confrontar marcos interpretativos dominantes?", options: ["Meme de Transición", "Meme de Fricción", "Meme de Consolidación", "Meme Hegemónico"], answer: "Meme de Fricción", topic: "Memes Cognosistémicos" },
-            { question: "¿Qué movilidad narrativa describe el incremento de posición en la jerarquía de un relato?", options: ["Horizontal", "Descendente", "Estática", "Ascendente"], answer: "Ascendente", topic: "Movilidad Narrativa" },
-            { question: "La TCCR propone una ontología sistémico-relacional que concibe al ser humano como:", options: ["Unidad cognitiva aislada", "Ser social y relacional", "Entidad puramente cultural", "Resultado de un discurso hegemónico"], answer: "Ser social y relacional", topic: "Tripleta TCCR" },
-            { question: "¿Qué componente del SNC contrasta datos, inferencias y encaje sistémico/ético del relato?", options: ["Contenido Proposicional", "Evaluación Cognitiva (Cuerpo Narrativo)", "Experiencia", "Percepciones y Emociones"], answer: "Evaluación Cognitiva (Cuerpo Narrativo)", topic: "Sistemas Narrativos (8 Elementos)" },
-            { question: "Un Cognosistema se adscribe conceptualmente a:", options: ["Un individuo y su mapa mental", "Una familia nuclear", "Una sociedad en específico", "Un discurso hegemónico único"], answer: "Una sociedad en específico", topic: "Cognosistema" },
-            { question: "La etapa de 'Madurez' del Ciclo Vital Narrativo se caracteriza por:", options: ["Fase de experimentación abierta", "Estabilidad y resistencia al cambio", "Reorganización tras una crisis", "Introducción de fricciones"], answer: "Estabilidad y resistencia al cambio", topic: "Ciclo Vital Narrativo" },
-            { question: "¿Qué tipo de Meme Cognosistémico actúa como vector de cambio gradual y adaptación progresiva?", options: ["Meme de Consolidación", "Meme de Fricción", "Meme de Transición", "Meme Desafiante"], answer: "Meme de Transición", topic: "Memes Cognosistémicos" }
-        ];
-
-        // --- Nuevas Reglas de Oro (Mantenidas y Reforzadas) ---
-        const systemPrompt = `Eres un trabajador social experto y riguroso en la "Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana" (TCCR) de Jalin Simunovic (2025). Tu tarea es generar preguntas académicamente sólidas, bien estructuradas y con opciones de respuesta válidas que evalúen el conocimiento profundo de la TCCR, siguiendo estrictamente las Reglas de Oro Conceptuales (RDC) a continuación.
-
-**REGLAS DE ORO CONCEPTUALES (RDC) para la generación de contenido TCCR:**
-
-1.  **Anclaje Paradigmático (RDC 0):** Toda pregunta o explicación debe preservar la mirada cognosistémica: la realidad psicosocial es una **construcción narrativa relacional** dentro de **Cognosistemas** específicos, con **multinivelidad**, **jerarquías narrativas**, **circulación de sentido**, **poder**, **temporalidad** y **validación ética**.
-
-2.  **Cognosistema (RDC 1):** Un Cognosistema **SIEMPRE** se ancla a **una sociedad específica** (y a un periodo, si es relevante). **NUNCA** se asigna a un individuo, familia u organización de forma aislada. Debe incluir **capas** (micro/meso/exo/macro y temporalidades), **interdependencias**, **jerarquías narrativas** y **dinámicas de cambio**. No confundir con 'cultura' o 'discurso hegemónico'.
-
-3.  **Sistema Narrativo Cognosistémico (SNC) (RDC 2):** Un SNC es una **unidad** dentro del Cognosistema y se define por sus **8 elementos diferenciados**: Experiencia; Percepciones/Emociones; Contexto; **Núcleo** (contenido proposicional); **Cuerpo** (evaluación cognitiva); Actitud epistémica; Propósito; Función. Las preguntas deben distinguir entre **Núcleo** y **Cuerpo**, y **Propósito** y **Función**.
-
-4.  **Dinámica (Ciclo, Fases, Movilidad):** Incluir preguntas sobre el **Ciclo Vital Narrativo** (5 etapas), las **Fases de Cambio Cognosistémico** (**Beta, Alfa, Delta**) y la **Movilidad Narrativa** (Ascendente, Descendente, Horizontal).
-
-5.  **Memes Cognosistémicos:** Las preguntas deben abordar los memes como **unidades de significado estratégicas e intencionales** y su **Tipología Funcional** (Consolidación, Fricción, Transición).
-
-6.  **Errores Prohibidos (Bandera Roja):** Evitar generar preguntas que cometan estos errores conceptuales:
-    * Asociar 'Cognosistema' a una persona/familia/empresa.
-    * Colapsar (confundir) **Núcleo** con **Cuerpo** o **Propósito** con **Función**.
-    * Omitir la **periodización** o tratar el Cognosistema como **estático**.
-
-Tu única respuesta debe ser el array JSON solicitado, sin comentarios, texto introductorio o epílogo.`;
-
-        // Modificación: Solicitamos 10 preguntas en lugar de 5
-        const userQuery = "Genera 10 preguntas de opción múltiple rigurosas sobre la Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana (TCCR) de Jalin Simunovic. Asegura que el set de 10 cubra de manera diversa y equitativa los siguientes constructos clave: 1) Cognosistema/Adscripción; 2) Fases de Cambio (Alfa, Beta, Delta); 3) Elementos del SNC (Núcleo vs Cuerpo, Propósito vs Función); 4) Jerarquía Narrativa/Movilidad; 5) Memes Cognosistémicos; 6) Tripleta TCCR (Ontología, Epistemología, Metodología); 7) Ciclo Vital Narrativo. La respuesta debe ser SOLO un array JSON que siga el siguiente esquema, incluyendo el campo 'topic' para cada pregunta:";
-        
-        const responseSchema = {
-            type: "ARRAY",
-            items: {
-                type: "OBJECT",
-                properties: {
-                    "question": { "type": "STRING", "description": "La pregunta sobre la TCCR." },
-                    "options": {
-                        "type": "ARRAY",
-                        "items": { "type": "STRING" },
-                        "description": "Cuatro opciones de respuesta."
-                    },
-                    "answer": { "type": "STRING", "description": "La opción correcta." },
-                    "topic": { "type": "STRING", "description": "El constructo TCCR evaluado (e.g., 'Cognosistema', 'Fases de Cambio', 'Memes Cognosistémicos')." }
-                },
-                "propertyOrdering": ["question", "options", "answer", "topic"]
-            }
-        };
-
-        // --- Funciones de Utilidad ---
-
-        /**
-         * Simula un retraso con retroceso exponencial.
-         * @param {number} attempt El intento actual de la llamada (empezando en 0).
-         */
-        function backoffDelay(attempt) {
-            const delay = Math.min(1000 * Math.pow(2, attempt), 30000); // 1s, 2s, 4s... hasta 30s
-            return new Promise(resolve => setTimeout(resolve, delay));
+    <title>Trivia TCCR: Teoría Cognosistémica</title>
+    <style>
+        /* Variables y Reset Básico */
+        :root {
+            --color-primary: #1e3a8a; /* Azul Oscuro */
+            --color-secondary: #3b82f6; /* Azul Brillante */
+            --color-background: #f1f5f9; /* Gris Claro */
+            --color-card: #ffffff;
+            --color-correct: #10b981; /* Verde */
+            --color-incorrect: #ef4444; /* Rojo */
+            --color-text: #1f2937; /* Gris Oscuro */
+            --color-light-text: #9ca3af;
+            --font-family: 'Inter', sans-serif;
         }
 
-        /**
-         * Realiza la llamada a la API de Gemini con retroceso exponencial.
-         * @param {number} maxAttempts Número máximo de intentos.
-         * @returns {Promise<Array>} Un array de preguntas generadas.
-         */
-        async function fetchDynamicQuestions(maxAttempts = 3) {
-            if (!STATE.dynamicQuestionsEnabled) return staticQuestions;
-
-            STATE.loading = true;
-            STATE.statusMessage = 'Generando set de preguntas (Fase Delta)...';
-            render();
-
-            const apiKey = "AIzaSyDcSrf5qmddi3G3YdqmaQozqCzf8won3iA"; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: responseSchema
-                }
-            };
-
-            for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                try {
-                    if (attempt > 0) {
-                        STATE.statusMessage = `Reintentando generación (Intento ${attempt + 1}/${maxAttempts})...`;
-                        render();
-                        await backoffDelay(attempt);
-                    }
-
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        const errorBody = await response.text();
-                        console.error('API call failed (not ok):', response.status, errorBody);
-                        if (response.status === 429) {
-                            // Rate Limit, try again
-                            continue;
-                        }
-                        throw new Error(`Error en la respuesta de la API: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    const candidate = result.candidates?.[0];
-
-                    if (candidate && candidate.content?.parts?.[0]?.text) {
-                        const jsonText = candidate.content.parts[0].text;
-                        const questions = JSON.parse(jsonText);
-                        
-                        if (Array.isArray(questions) && questions.length === 10 && questions.every(q => q.question && q.options && q.answer)) {
-                            console.log('Preguntas dinámicas generadas exitosamente.');
-                            return questions;
-                        } else {
-                            console.error('JSON Structure validation failed:', questions);
-                            // Forzar un nuevo intento si el conteo es incorrecto o la estructura falla
-                            continue; 
-                        }
-                    } else {
-                        console.error('Respuesta de la API incompleta:', result);
-                        throw new Error("La IA no proporcionó contenido válido.");
-                    }
-                } catch (error) {
-                    console.error(`Falla en la generación dinámica (Intento ${attempt + 1}):`, error.message);
-                    if (attempt === maxAttempts - 1) {
-                        throw new Error(`Fallo definitivo en la generación dinámica. Causa: ${error.message}`);
-                    }
-                }
-            }
-            // Si todos los intentos fallan, se devuelve un array vacío para forzar el fallback
-            return [];
+        body {
+            font-family: var(--font-family);
+            background-color: var(--color-background);
+            color: var(--color-text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
         }
 
-
-        // --- Lógica Principal de la Trivia ---
-
-        async function initializeAppAndAuth() {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                await new Promise((resolve) => {
-                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                        if (!user) {
-                            // Intentar autenticación con el token custom
-                            if (initialAuthToken) {
-                                await signInWithCustomToken(auth, initialAuthToken);
-                            } else {
-                                // Si no hay token, usar anónimo
-                                await signInAnonymously(auth);
-                            }
-                        }
-                        userId = auth.currentUser?.uid || crypto.randomUUID();
-                        isAuthReady = true;
-                        unsubscribe(); 
-                        resolve();
-                    });
-                });
-                
-                STATE.statusMessage = `Usuario ID: ${userId.substring(0, 8)}...`;
-                setupFirestoreListener();
-                
-            } catch (error) {
-                console.error("Error al inicializar Firebase o autenticar:", error);
-                STATE.statusMessage = 'Error al iniciar la base de datos.';
-                render();
-            }
+        main {
+            width: 100%;
+            max-width: 700px;
+            margin: 20px;
+            padding: 20px;
+            background-color: var(--color-card);
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
-        async function loadQuestions() {
-            STATE.loading = true;
-            STATE.statusMessage = 'Cargando preguntas...';
-            render();
-
-            try {
-                // Genera un ID de trivia único para forzar la renovación del set
-                STATE.triviaId = 'TCCR-Quiz-' + Date.now(); 
-                
-                const dynamicQuestions = await fetchDynamicQuestions();
-                if (dynamicQuestions.length === 10) {
-                    STATE.questions = dynamicQuestions;
-                    STATE.statusMessage = '¡Nuevo set de 10 preguntas dinámicas cargado! (Fase Delta exitosa)';
-                    STATE.dynamicQuestionsEnabled = true;
-                } else {
-                    // Fallback a preguntas estáticas (Fase Beta)
-                    STATE.questions = staticQuestions;
-                    STATE.dynamicQuestionsEnabled = false;
-                    STATE.statusMessage = 'Alerta: Fallo en la generación dinámica. Usando preguntas estáticas (Fase Beta).';
-                }
-                
-                STATE.questions = shuffleArray(STATE.questions);
-                STATE.currentQuestionIndex = 0;
-                STATE.score = 0;
-                STATE.showResult = false;
-                STATE.answered = false;
-                STATE.incorrectTopics = {};
-                STATE.loading = false;
-                
-            } catch (error) {
-                console.error("Error definitivo al cargar preguntas:", error);
-                STATE.questions = staticQuestions; // Fallback ante cualquier error
-                STATE.dynamicQuestionsEnabled = false;
-                STATE.loading = false;
-                STATE.statusMessage = `Error: ${error.message}. Usando preguntas estáticas.`;
-            }
-            render();
+        h1 {
+            color: var(--color-primary);
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
         }
 
-        function setupFirestoreListener() {
-            if (!isAuthReady || !db || !userId) return;
-
-            // Nota: Este listener ahora solo se usa para cargar el progreso si el ID de la trivia fuera fijo, 
-            // pero mantenemos el guardado (saveProgress) para persistencia.
-            const docRef = doc(db, `artifacts/${appId}/users/${userId}/trivia_tccr_data`, 'last-progress');
-
-            onSnapshot(docRef, (docSnap) => {
-                // Solo renderiza para asegurar la UI del usuario
-                render();
-            }, (error) => {
-                console.error("Error al escuchar cambios en Firestore:", error);
-                STATE.statusMessage = 'Error al sincronizar datos de progreso.';
-                render();
-            });
+        h2 {
+            font-size: 1.4rem;
+            color: var(--color-secondary);
+            margin-top: 1rem;
+            margin-bottom: 1rem;
         }
 
-        async function saveProgress() {
-            if (!isAuthReady || !db || !userId) return;
-
-            // Guardamos el último progreso bajo un ID fijo para que el listener funcione, 
-            // aunque el set de preguntas cambie.
-            const docRef = doc(db, `artifacts/${appId}/users/${userId}/trivia_tccr_data`, 'last-progress');
-            const dataToSave = {
-                score: STATE.score,
-                currentQuestionIndex: STATE.currentQuestionIndex,
-                incorrectTopics: STATE.incorrectTopics,
-                showResult: STATE.showResult,
-                timestamp: new Date().toISOString()
-            };
-
-            try {
-                await setDoc(docRef, dataToSave, { merge: true });
-                // console.log("Progreso guardado.");
-            } catch (error) {
-                console.error("Error al guardar progreso en Firestore:", error);
-            }
+        p.progress-bar {
+            background-color: var(--color-background);
+            border-radius: 9999px;
+            height: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
         }
 
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
+        .progress-fill {
+            height: 100%;
+            background-color: var(--color-correct);
+            transition: width 0.3s ease-in-out;
         }
 
-        function analyzeReinforcementTopics() {
-            // Convierte el mapa de conteo de errores en un array de pares [tema, conteo]
-            const topicsArray = Object.entries(STATE.incorrectTopics);
-            
-            // Ordena de mayor a menor número de errores
-            topicsArray.sort((a, b) => b[1] - a[1]);
-
-            if (topicsArray.length === 0) {
-                return "¡Excelente! No se registraron errores conceptuales. El Cognosistema de tu aprendizaje está en Fase Beta (Estabilidad).";
-            }
-
-            // Selecciona los 3 temas con más errores
-            const topTopics = topicsArray.slice(0, 3);
-
-            let message = "Análisis Cognosistémico de Refuerzo (Evaluación Cognitiva): ";
-            message += "Se detectan **Fricciones Narrativas** en los siguientes constructos, que requieren una **Reorganización Sistémica (Fase Delta)** de tus esquemas de significado:\n\n";
-
-            topTopics.forEach(([topic, count], index) => {
-                const topicAnalysis = getTopicAnalysis(topic);
-                message += `${index + 1}. **${topic}** (Errores: ${count}): ${topicAnalysis}\n`;
-            });
-            
-            message += "\nTu **Actitud Epistémica** debe ser de apertura. Debes revisar estos **Sistemas Narrativos** para lograr una **Movilidad Ascendente** en tu comprensión del **Cognosistema TCCR**.";
-
-            return message;
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--color-primary);
+            margin-bottom: 15px;
+            padding: 10px;
+            border-bottom: 1px solid var(--color-background);
         }
 
-        function getTopicAnalysis(topic) {
-            switch(topic.toLowerCase().trim()) {
-                case 'cognosistema/adscripción':
-                case 'cognosistema':
-                    return 'Revisa la adscripción (sociedad y tiempo) y la regla de NO asignarlo a un individuo aislado.';
-                case 'dinámica de cambio (alfa, beta, delta)':
-                case 'fases de cambio (alfa, beta, delta)':
-                    return 'Distingue claramente entre Estabilidad (Beta), Crisis (Alfa) y Transformación (Delta).';
-                case 'sistemas narrativos (8 elementos)':
-                case 'elementos del snc (núcleo vs cuerpo, propósito vs función)':
-                    return 'Recuerda las distinciones clave: Núcleo vs Cuerpo y Propósito vs Función. No colapses los elementos.';
-                case 'jerarquía narrativa/movilidad':
-                    return 'Asegúrate de entender qué factores causan Movilidad Ascendente (crisis, retroalimentación) o Descendente (rechazo, desacreditación).';
-                case 'memes cognosistémicos':
-                    return 'Clasifica la función de los memes: Consolidación, Fricción o Transición.';
-                case 'tripleta tccr':
-                    return 'Refuerza la Ontología (ser relacional), Epistemología (análisis cognosistémico) y Metodología (ecosistémica-narrativa).';
-                case 'ciclo vital narrativo':
-                    return 'Revisa las 5 etapas: Surgimiento, Desarrollo, Madurez, Declive/Transformación y Renovación.';
-                default:
-                    return 'Revisa la definición y rol dentro del marco metateórico de la TCCR.';
-            }
+        /* Contenedores de Pantalla */
+        .screen {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* Estilos de Formulario y Controles */
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: var(--color-secondary);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.1s;
+            width: 100%;
+            margin-top: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:focus {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 3px;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .button-group > button {
+            margin-top: 0;
+        }
+
+        /* Estilos de la Pregunta (Fieldset) */
+        fieldset {
+            border: 1px solid var(--color-background);
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        legend {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--color-primary);
+            padding: 0 10px;
+        }
+
+        .alternativa {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            background-color: var(--color-background);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .alternativa:hover {
+            background-color: #e2e8f0;
+        }
+
+        .alternativa input[type="radio"] {
+            margin-right: 12px;
+            /* Ocultar el radio nativo para mejor control de estilo */
+            opacity: 0;
+            position: absolute;
+        }
+
+        .alternativa span.label-text {
+            flex-grow: 1;
+            font-weight: 500;
+        }
+
+        /* Estilo visual para el radio */
+        .custom-radio {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--color-secondary);
+            border-radius: 50%;
+            margin-right: 12px;
+            display: inline-block;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        input[type="radio"]:checked + .custom-radio {
+            background-color: var(--color-secondary);
+            border-color: var(--color-secondary);
+        }
+
+        input[type="radio"]:checked + .custom-radio::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Feedback de Respuesta */
+        #feedback-area {
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+
+        .feedback-correct {
+            background-color: #d1fae5;
+            color: var(--color-correct);
+            border: 1px solid var(--color-correct);
+        }
+
+        .feedback-incorrect {
+            background-color: #fee2e2;
+            color: var(--color-incorrect);
+            border: 1px solid var(--color-incorrect);
+        }
+
+        #feedback-area h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        #feedback-area p {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        /* Pantalla Final y de Resumen */
+        .summary-box {
+            background-color: #e0f2fe;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .summary-box h3 {
+            color: var(--color-primary);
+            margin-top: 0;
+        }
+
+        .summary-box p {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 5px 0;
+        }
+
+        #final-score {
+            font-size: 2rem;
+            color: var(--color-correct);
+            font-weight: 800;
+        }
+
+        .restart-button {
+            background-color: #64748b; /* Gris para reiniciar */
         }
         
-        // --- Handlers de Interfaz ---
-
-        window.handleAnswer = function(selectedOption) {
-            if (STATE.answered) return;
-
-            const currentQuestion = STATE.questions[STATE.currentQuestionIndex];
-            STATE.answered = true;
-
-            const button = event.target;
-            const isCorrect = selectedOption === currentQuestion.answer;
-            
-            if (isCorrect) {
-                STATE.score++;
-                button.classList.add('bg-green-500', 'ring-green-700');
-                STATE.feedback = '¡Correcto! El sistema narrativo se consolida.';
-            } else {
-                button.classList.add('bg-red-500', 'ring-red-700');
-                STATE.feedback = `Incorrecto. La respuesta correcta era: ${currentQuestion.answer}.`;
-                
-                // Registro de error para el análisis
-                const topic = currentQuestion.topic || 'Sin Categoría';
-                STATE.incorrectTopics[topic] = (STATE.incorrectTopics[topic] || 0) + 1;
-
-                // Marcar la opción correcta en la UI
-                document.querySelectorAll('.option-button').forEach(btn => {
-                    if (btn.textContent.trim() === currentQuestion.answer.trim()) {
-                        btn.classList.add('bg-green-200', 'border-green-600');
-                    }
-                });
-            }
-
-            saveProgress();
-            render();
-
-            // Esperar y pasar a la siguiente
-            setTimeout(window.handleNext, 1500);
-        };
-
-        window.handleNext = function() {
-            if (STATE.currentQuestionIndex < STATE.questions.length - 1) {
-                STATE.currentQuestionIndex++;
-                STATE.answered = false;
-                STATE.feedback = '';
-            } else {
-                STATE.showResult = true;
-            }
-            saveProgress();
-            render();
-        };
-
-        window.handleRestart = function() {
-            // El reinicio implica un nuevo ciclo, forzando la carga de 10 preguntas nuevas
-            loadQuestions(); 
-        };
-
-        window.handleRefreshQuestions = function() {
-            loadQuestions();
-        };
-
-        // --- Renderización del UI ---
-
-        function render() {
-            const appDiv = document.getElementById('app');
-            const currentQuestion = STATE.questions[STATE.currentQuestionIndex];
-            let content;
-
-            if (STATE.loading) {
-                content = `
-                    <div class="flex flex-col items-center justify-center p-8">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-                        <p class="mt-4 text-xl text-orange-600 font-semibold">${STATE.statusMessage}</p>
-                        <p class="mt-2 text-gray-500 text-sm">Procesando petición en el Cognosistema...</p>
-                    </div>
-                `;
-            } else if (STATE.showResult) {
-                const totalQuestions = STATE.questions.length;
-                const percentage = ((STATE.score / totalQuestions) * 100).toFixed(0);
-                const reinforcementAnalysis = analyzeReinforcementTopics();
-
-                content = `
-                    <div class="flex flex-col items-center text-center p-6 space-y-6">
-                        <h2 class="text-3xl font-bold text-gray-800">Resultado Cognosistémico Final</h2>
-                        <div class="text-6xl font-extrabold text-orange-600">${percentage}%</div>
-                        <p class="text-xl text-gray-700">Tu **Score Narrativo** es: ${STATE.score} de ${totalQuestions} preguntas.</p>
-                        
-                        <div class="w-full max-w-lg bg-white p-6 rounded-xl shadow-lg border-2 border-orange-200 text-left">
-                            <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Diagnóstico de Refuerzo</h3>
-                            <p class="whitespace-pre-wrap text-sm text-gray-600">${reinforcementAnalysis}</p>
-                        </div>
-
-                        <button onclick="handleRestart()" class="w-full sm:w-auto px-6 py-3 bg-orange-600 text-white text-lg font-semibold rounded-xl shadow-lg hover:bg-orange-700 transition duration-300 transform hover:scale-105">
-                            Reiniciar Evaluación (Nuevo Ciclo de Renovación)
-                        </button>
-                    </div>
-                `;
-            } else if (currentQuestion) {
-                const questionNumber = STATE.currentQuestionIndex + 1;
-                const totalQuestions = STATE.questions.length;
-                
-                const optionsHtml = currentQuestion.options.map(option => `
-                    <button 
-                        class="option-button w-full text-left p-4 my-2 text-gray-700 bg-white border border-gray-300 rounded-xl shadow-md transition duration-200 
-                               ${STATE.answered ? 'cursor-not-allowed opacity-70' : 'hover:bg-orange-50 hover:border-orange-400 transform hover:scale-[1.01]'} ring-2 ring-transparent"
-                        onclick="handleAnswer('${option.replace(/'/g, "\\'")}')"
-                        ${STATE.answered ? 'disabled' : ''}
-                    >
-                        ${option}
-                    </button>
-                `).join('');
-
-                content = `
-                    <div class="p-6 space-y-6">
-                        <div class="text-sm font-medium text-orange-600">
-                            Pregunta ${questionNumber} de ${totalQuestions} | Tópico: ${currentQuestion.topic || 'General'}
-                        </div>
-                        <div class="text-xl font-bold text-gray-900 bg-orange-50 p-4 rounded-xl shadow-inner border-l-4 border-orange-500">
-                            ${currentQuestion.question}
-                        </div>
-                        <div class="flex flex-col space-y-3">
-                            ${optionsHtml}
-                        </div>
-                        
-                        ${STATE.answered ? `
-                            <div class="mt-4 p-3 rounded-xl ${STATE.feedback.includes('Correcto') ? 'bg-green-100 border-green-500 text-green-800' : 'bg-red-100 border-red-500 text-red-800'} border-2 font-semibold">
-                                ${STATE.feedback}
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            } else {
-                 content = `
-                    <div class="flex flex-col items-center justify-center p-8">
-                        <p class="text-xl text-gray-600 font-semibold">No hay preguntas disponibles.</p>
-                        <button onclick="handleRefreshQuestions()" class="mt-4 px-4 py-2 bg-orange-600 text-white rounded-lg">Generar Primer Set (Inicia el Ciclo)</button>
-                    </div>
-                `;
-            }
-
-            appDiv.innerHTML = `
-                <div class="min-h-screen bg-gray-100 font-['Inter'] flex items-center justify-center p-4 sm:p-8">
-                    <div class="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden">
-                        
-                        <!-- Header y Estado -->
-                        <div class="bg-gray-800 text-white p-4 sm:p-6 flex justify-between items-center rounded-t-2xl">
-                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">
-                                TCCR: Evaluación Cognosistémica
-                            </h1>
-                            <div class="text-sm font-mono bg-gray-700 py-1 px-3 rounded-full">
-                                Score: ${STATE.score}
-                            </div>
-                        </div>
-
-                        <!-- Contenido Principal -->
-                        <div class="p-4 sm:p-6">
-                            ${content}
-                        </div>
-
-                        <!-- Footer y Mensajes de Estado -->
-                        <div class="p-4 sm:p-6 border-t bg-gray-50 rounded-b-2xl">
-                            <p class="text-xs text-gray-500 italic">${STATE.statusMessage}</p>
-                            ${!STATE.dynamicQuestionsEnabled && !STATE.loading && STATE.questions.length > 0 ? `
-                                <div class="mt-2 p-2 text-sm text-red-700 bg-red-100 rounded-lg font-medium border border-red-300">
-                                    ¡Modo Fallback Activo! Usando preguntas estáticas de **Fase Beta**. (No fue posible generar 10 nuevas).
-                                </div>
-                            ` : ''}
-                            ${!STATE.loading && STATE.questions.length > 0 && !STATE.showResult ? `
-                                <button onclick="handleRefreshQuestions()" class="mt-4 px-4 py-2 text-sm bg-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-300 transition duration-200">
-                                    Generar Nuevo Set de 10 (Fase Delta)
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
+        .restart-button:hover {
+            background-color: #4b5563;
         }
-        
-        // Inicialización
-        window.onload = async function() {
-            await initializeAppAndAuth();
-            loadQuestions();
-        };
-
-    </script>
+    </style>
 </head>
 <body>
-    <div id="app">
-        <!-- El contenido será renderizado por JavaScript -->
-    </div>
+    <main>
+        <h1>Trivia TCCR: Teoría Cognosistémica</h1>
+        <div id="app-container">
+            <!-- Pantalla de Inicio y Login -->
+            <section id="login-screen" class="screen active">
+                <h2>Comencemos</h2>
+                <div class="form-group">
+                    <label for="player-name-input">Ingresa tu nombre de pila (obligatorio):</label>
+                    <input type="text" id="player-name-input" aria-label="Ingresa tu nombre para comenzar o continuar la trivia" required>
+                </div>
+                <div class="button-group">
+                    <button id="start-new-game" aria-label="Comenzar una nueva Trivia">Iniciar Trivia</button>
+                    <button id="continue-game" style="display: none;" class="restart-button" aria-label="Continuar con el progreso anterior">Continuar</button>
+                </div>
+            </section>
+
+            <!-- Pantalla Principal de Pregunta -->
+            <section id="quiz-screen" class="screen">
+                <div class="header-info">
+                    <span id="player-greeting">Hola, [Nombre]</span>
+                    <span id="progress-text" aria-live="polite">Nivel X de 10 · Pregunta Y de 10 · Puntaje: Z</span>
+                </div>
+                <p class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <span id="overall-progress-fill" class="progress-fill" style="width: 0%;"></span>
+                </p>
+                <form id="question-form">
+                    <fieldset>
+                        <legend id="question-legend">Cargando pregunta...</legend>
+                        <div id="alternatives-container">
+                            <!-- Alternativas se inyectan aquí -->
+                        </div>
+                    </fieldset>
+                    
+                    <button type="submit" id="submit-button" aria-label="Confirmar y enviar mi respuesta">Responder</button>
+                </form>
+
+                <!-- Área de Feedback y Justificación -->
+                <div id="feedback-area" style="display: none;" role="alert" aria-live="assertive">
+                    <!-- Feedback y justificación se inyectan aquí -->
+                </div>
+
+                <button id="next-button" style="display: none;" aria-label="Continuar a la siguiente pregunta">Siguiente →</button>
+            </section>
+
+            <!-- Pantalla de Resumen de Nivel -->
+            <section id="summary-screen" class="screen">
+                <h2 id="summary-title" style="text-align: center;">Resumen de Nivel</h2>
+                <div class="summary-box">
+                    <p id="level-result"></p>
+                    <p>Aciertos en este Nivel: <span id="level-correct" style="color: var(--color-secondary);">0/10</span></p>
+                    <p>Puntaje Acumulado: <span id="summary-total-score" style="color: var(--color-primary); font-size: 1.2rem;">0</span></p>
+                </div>
+                <div class="button-group" id="summary-actions">
+                    <!-- Botones se inyectan aquí -->
+                </div>
+            </section>
+
+            <!-- Pantalla Final -->
+            <section id="final-screen" class="screen">
+                <h2 style="text-align: center; color: var(--color-correct);">¡Felicidades, <span id="final-player-name"></span>!</h2>
+                <div class="summary-box">
+                    <p style="font-size: 1.3rem;">Has completado la Trivia TCCR.</p>
+                    <p>Tu puntaje final es:</p>
+                    <p id="final-score">100</p>
+                </div>
+                <button onclick="window.location.reload()" aria-label="Reiniciar toda la aplicación">Reiniciar el juego</button>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. DATOS EMBEBIDOS (Parsed from CUESTIONARIO TCCR.txt) ---
+        const QUESTIONS = [
+            {
+                level: 1,
+                title: "NIVEL 1 – PREGUNTAS BÁSICAS DE DEFINICIONES Y CONCEPTOS INTRODUCTORIOS",
+                items: [
+                    {
+                        numero: 1,
+                        enunciado: "Según la TCCR, ¿qué es el Cognosistema?",
+                        opciones: {
+                            A: "El mapa mental personal de un individuo.",
+                            B: "Un sinónimo de la cultura general de una sociedad.",
+                            C: "El discurso hegemónico que domina en un periodo histórico.",
+                            D: "Un suprasistema narrativo ecosistémico que estructura la realidad psicosocial de una sociedad específica."
+                        },
+                        correcta: "D",
+                        justificacion: "El núcleo definicional de la TCCR establece que el Cognosistema es el \"suprasistema narrativo ecosistémico de mayor nivel que estructura la realidad psicosocial de una sociedad específica\". Las alternativas A, B y C son errores conceptuales explícitamente señalados en las fuentes, que aclaran que el Cognosistema no es un mapa mental individual, no se reduce a la cultura (aunque la incluye) y no es sinónimo de discurso hegemónico (siendo la hegemonía una posición dentro de él)."
+                    },
+                    {
+                        numero: 2,
+                        enunciado: "¿Cuál es la unidad básica que compone la estructura del Cognosistema?",
+                        opciones: {
+                            A: "El meme cognosistémico.",
+                            B: "El individuo.",
+                            C: "El Sistema Narrativo Cognosistémico.",
+                            D: "La capa cognosistémica."
+                        },
+                        correcta: "C",
+                        justificacion: "Las fuentes definen al Sistema Narrativo Cognosistémico (SNC) como la unidad básica del Cognosistema. Los memes cognosistémicos son vehículos de significados, los individuos participan en el SNC y las capas son estratos, pero la unidad básica de sentido relacional es el SNC."
+                    },
+                    {
+                        numero: 3,
+                        enunciado: "¿Cuál de los siguientes NO es un elemento constitutivo de la estructura de un Sistema Narrativo Cognosistémico (SNC)?",
+                        opciones: {
+                            A: "Propósito Narrativo.",
+                            B: "Evaluación Cognitiva.",
+                            C: "Cohesión Social.",
+                            D: "Actitud Epistémica."
+                        },
+                        correcta: "C",
+                        justificacion: "La estructura del SNC se compone de 8 elementos. Cohesión Social es un efecto relacional o una propiedad de un sistema social, pero no es uno de los 8 elementos del SNC (Experiencia, Percepciones/Emociones, Contexto, Contenido Proposicional, Evaluación Cognitiva, Actitud Epistémica, Propósito Narrativo, Función Narrativa)."
+                    },
+                    {
+                        numero: 4,
+                        enunciado: "Según la TCCR, la afirmación 'El Cognosistema de mi familia es muy rígido' constituye un error conceptual, ya que:",
+                        opciones: {
+                            A: "El Cognosistema solo se aplica a instituciones formales.",
+                            B: "El Cognosistema se adscribe siempre a una sociedad, no a un grupo o familia de forma aislada.",
+                            C: "La TCCR no utiliza el término 'Cognosistema' en su marco formal.",
+                            D: "La familia se analiza únicamente desde el nivel micro, no desde el Cognosistema."
+                        },
+                        correcta: "B",
+                        justificacion: "La 'Regla de Oro' de la TCCR es explícita: el Cognosistema es un suprasistema que se adscribe siempre a una sociedad y periodo, nunca a un individuo, familia o grupo de forma aislada. La familia es un sistema narrativo meso dentro de un Cognosistema mayor."
+                    },
+                    {
+                        numero: 5,
+                        enunciado: "¿Qué articulación teórica innovadora propone la TCCR al combinar lo cognitivo y lo sistémico?",
+                        opciones: {
+                            A: "Ontología sistémico-relacional.",
+                            B: "Metodología ecosistémica-narrativa.",
+                            C: "Epistemología cognosistémica.",
+                            D: "Modelo de autopoiesis narrativa."
+                        },
+                        correcta: "C",
+                        justificacion: "La TCCR realiza una propuesta tridimensional que incluye una ontología sistémico-relacional, una metodología ecosistémica-narrativa y una epistemología basada en el análisis cognosistémico de la realidad humana. Esta última articula lo cognitivo y lo sistémico."
+                    },
+                    {
+                        numero: 6,
+                        enunciado: "La TCCR concibe al ser humano, en esencia, como un ser social y relacional. Esta idea forma parte de su:",
+                        opciones: {
+                            A: "Propuesta metodológica.",
+                            B: "Propuesta ontológica.",
+                            C: "Propuesta praxeológica.",
+                            D: "Propuesta epistemológica."
+                        },
+                        correcta: "B",
+                        justificacion: "La ontología sistémico-relacional de la TCCR concibe al ser humano como un ser esencialmente social y relacional, cuyo desarrollo y bienestar se enraízan en los entramados de vínculos que conforman la realidad psicosocial."
+                    },
+                    {
+                        numero: 7,
+                        enunciado: "¿Cuál es la función principal que tiene el elemento 'Función Narrativa' dentro de un SNC?",
+                        opciones: {
+                            A: "Servir como materia prima del relato (hechos vividos).",
+                            B: "Distribuir poder, organizar vínculos y orientar decisiones con efectos relacionales.",
+                            C: "Establecer la certeza o duda sobre el conocimiento (disposición epistémica).",
+                            D: "Contrastar datos, inferencias y encaje sistémico-ético (Evaluación Cognitiva)."
+                        },
+                        correcta: "B",
+                        justificacion: "La Función Narrativa organiza el sentido, coordina vínculos, distribuye poder y orienta las decisiones humanas, teniendo efectos relacionales. Es el 'para qué' o los efectos prácticos del relato. La alternativa A describe la Experiencia, C la Actitud Epistémica y D la Evaluación Cognitiva."
+                    },
+                    {
+                        numero: 8,
+                        enunciado: "En la jerarquía de narrativas de la TCCR, ¿cuáles son percibidas como 'naturales', dominan y estructuran la realidad social al legitimar las normas y valores?",
+                        opciones: {
+                            A: "Narrativas resilientes.",
+                            B: "Narrativas subyugadas.",
+                            C: "Narrativas desafiantes.",
+                            D: "Narrativas hegemónicas."
+                        },
+                        correcta: "D",
+                        justificacion: "Las narrativas hegemónicas se encuentran en la cúpula de la jerarquía, dominan y estructuran la realidad social al legitimar las normas y valores, siendo percibidas como 'naturales' e inevitables en el nivel macro del Cognosistema."
+                    },
+                    {
+                        numero: 9,
+                        enunciado: "La TCCR es concebida como una metateoría. ¿Qué implica esto en su propósito?",
+                        opciones: {
+                            A: "Que se limita a la intervención micro-social.",
+                            B: "Que es un conjunto de herramientas prácticas sin base conceptual.",
+                            C: "Que es un marco teórico unificado destinado a explicar cómo se construye la realidad psicosocial.",
+                            D: "Que solo opera en el nivel macro de las políticas públicas."
+                        },
+                        correcta: "C",
+                        justificacion: "La TCCR es definida como una 'metateoría destinada a explicar de manera coherente y consistente cómo los individuos y los colectivos construyen, negocian y transforman su realidad psicosocial a través de procesos narrativos', es decir, un marco teórico unificado."
+                    },
+                    {
+                        numero: 10,
+                        enunciado: "Según el ciclo vital de los sistemas narrativos, ¿qué etapa se caracteriza por la estabilidad y resistencia al cambio para sostener su legitimidad?",
+                        opciones: {
+                            A: "Surgimiento.",
+                            B: "Declive/Transformación.",
+                            C: "Renovación.",
+                            D: "Madurez."
+                        },
+                        correcta: "D",
+                        justificacion: "La etapa de Madurez se define por la estabilidad y estructura, donde la narrativa se vuelve dominante y resiste cambios para sostener su legitimidad, siendo un eje estructurante del grupo o cultura."
+                    }
+                ]
+            },
+            {
+                level: 2,
+                title: "NIVEL 2 – CONCEPTOS DE ESTRUCTURA Y DINÁMICA NARRATIVA",
+                items: [
+                    {
+                        numero: 11,
+                        enunciado: "¿Qué elemento del SNC organiza la experiencia mediante filtros sensoriales y afectivos, regulando atención y valoración?",
+                        opciones: {
+                            A: "Actitud Epistémica.",
+                            B: "Percepciones y Emociones.",
+                            C: "Contenido Proposicional.",
+                            D: "Evaluación Cognitiva."
+                        },
+                        correcta: "B",
+                        justificacion: "Las Percepciones y Emociones actúan como filtros sensoriales y afectivos que organizan la experiencia, modulan la atención, la valoración y la memoria, y no son la totalidad del SNC, sino sus moduladores."
+                    },
+                    {
+                        numero: 12,
+                        enunciado: "El 'Contenido Proposicional' dentro del SNC se refiere a:",
+                        opciones: {
+                            A: "El propósito de coordinar la acción social.",
+                            B: "El juicio ético sobre el relato.",
+                            C: "Las afirmaciones nucleares y abstractas sobre qué se sostiene y por qué.",
+                            D: "El entorno histórico-cultural que sitúa el relato."
+                        },
+                        correcta: "C",
+                        justificacion: "El Contenido Proposicional (o Núcleo Narrativo) se define como las afirmaciones nucleares del relato, de tipo abstracta, que responden a '¿qué se sostiene?', '¿por qué?' y '¿con qué alcances?'."
+                    },
+                    {
+                        numero: 13,
+                        enunciado: "¿Qué se conoce como la 'materia prima' para construir sentido e identidad en un Sistema Narrativo Cognosistémico (SNC)?",
+                        opciones: {
+                            A: "Actitud Epistémica.",
+                            B: "Función Narrativa.",
+                            C: "Propósito Narrativo.",
+                            D: "Experiencia."
+                        },
+                        correcta: "D",
+                        justificacion: "La Experiencia es definida como los hechos vividos que sirven de base para el relato, siendo la materia prima para construir sentido e identidad en el sistema narrativo."
+                    },
+                    {
+                        numero: 14,
+                        enunciado: "El Cognosistema se describe como un suprasistema narrativo que opera en múltiples niveles. ¿Cuál de los siguientes es un nivel de los sistemas narrativos que componen el Cognosistema?",
+                        opciones: {
+                            A: "Nivel Psicosocial.",
+                            B: "Nivel Conceptual.",
+                            C: "Nivel Exo.",
+                            D: "Nivel Cronológico."
+                        },
+                        correcta: "C",
+                        justificacion: "El Cognosistema opera en niveles micro, meso, exo, macro y cronosistema. El nivel Exo incluye sistemas narrativos que inciden indirectamente en la vida cotidiana (ej. marcos regulatorios, lineamientos mediáticos), sin interacción directa permanente con todos los sujetos."
+                    },
+                    {
+                        numero: 15,
+                        enunciado: "En el ciclo vital de los sistemas narrativos, ¿cuál fase describe una crisis o desestabilización que impulsa ajustes y reconfiguraciones sistémicas?",
+                        opciones: {
+                            A: "Desarrollo.",
+                            B: "Renovación.",
+                            C: "Declive o Transformación.",
+                            D: "Surgimiento."
+                        },
+                        correcta: "C",
+                        justificacion: "El Declive o Transformación es la fase de crisis o desestabilización, donde las fricciones impulsan ajustes y reconfiguraciones sistémicas para que la narrativa se adapte a contextos cambiantes o sea reemplazada."
+                    },
+                    {
+                        numero: 16,
+                        enunciado: "¿Qué rol cumple la 'Evaluación Cognitiva' dentro de la estructura de un SNC?",
+                        opciones: {
+                            A: "Definir la intención de la narrativa.",
+                            B: "Ejecutar el relato en el contexto.",
+                            C: "Contrastar datos, inferencias y el encaje sistémico y ético del relato.",
+                            D: "Determinar las emociones predominantes en la experiencia."
+                        },
+                        correcta: "C",
+                        justificacion: "La Evaluación Cognitiva (Cuerpo Narrativo) es el juicio sobre la coherencia, la evidencia y los efectos del relato, contrastando datos, inferencias y el encaje sistémico y ético del relato. Es el aspecto más concreto de justificación del relato."
+                    },
+                    {
+                        numero: 17,
+                        enunciado: "La TCCR concibe al Cognosistema como un suprasistema narrativo con 'plasticidad'. Esto se refiere a su capacidad de:",
+                        opciones: {
+                            A: "Producir narrativas idénticas de manera continua (autopoiesis).",
+                            B: "Mutar y adaptarse ante nuevas condiciones como tecnologías o migraciones.",
+                            C: "Resistir todo cambio externo para mantener su hegemonía.",
+                            D: "Ser analizado únicamente por su estructura estática."
+                        },
+                        correcta: "B",
+                        justificacion: "La plasticidad narrativa es la capacidad de mutar y adaptarse ante nuevas condiciones (tecnologías, migraciones, crisis, políticas) reconfigurando narrativas y sus enlaces, reflejando la naturaleza resiliente y viva del Cognosistema."
+                    },
+                    {
+                        numero: 18,
+                        enunciado: "La 'Actitud Epistémica' en un SNC se relaciona directamente con:",
+                        opciones: {
+                            A: "La distribución de poder en el sistema.",
+                            B: "La disposición frente al conocimiento: certeza, duda o apertura.",
+                            C: "El propósito de la narrativa.",
+                            D: "La percepción sensorial de la experiencia."
+                        },
+                        correcta: "B",
+                        justificacion: "La Actitud Epistémica es la disposición frente al conocimiento, es decir, las certezas, dudas u aperturas que regulan la revisión 'crítica' del relato, influyendo en su rigidez o flexibilidad."
+                    },
+                    {
+                        numero: 19,
+                        enunciado: "Según el modelo de estratificación narrativa, ¿cuál tipo de narrativa se caracteriza por resistir activamente y preservar identidades, generando transformaciones parciales sin desafiar el orden estructural completo?",
+                        opciones: {
+                            A: "Narrativas subyugadas.",
+                            B: "Narrativas dominantes emergentes.",
+                            C: "Narrativas adaptativas.",
+                            D: "Narrativas resilientes."
+                        },
+                        correcta: "D",
+                        justificacion: "Las narrativas resilientes resisten activamente, preservan identidades y generan transformaciones parciales dentro del Cognosistema. Las desafiantes cuestionan el poder, y las adaptativas solo mejoran condiciones sin desafiar el sistema."
+                    },
+                    {
+                        numero: 20,
+                        enunciado: "¿Qué elemento del SNC sitúa el relato, habilitando o limitando su sentido y práctica mediante el entorno histórico, cultural e institucional?",
+                        opciones: {
+                            A: "Experiencia.",
+                            B: "Propósito Narrativo.",
+                            C: "Contexto.",
+                            D: "Contenido Proposicional."
+                        },
+                        correcta: "C",
+                        justificacion: "El Contexto es el entorno histórico-cultural e institucional que sitúa el relato y habilita o limita el sentido y la práctica, siendo esencial para comprender la coherencia y validez de un SNC."
+                    }
+                ]
+            },
+            {
+                level: 3,
+                title: "NIVEL 3 – MEMES COGNOSISTÉMICOS Y DINÁMICA DE CAMBIO",
+                items: [
+                    {
+                        numero: 21,
+                        enunciado: "¿Cómo define la TCCR al Meme Cognosistémico (MC)?",
+                        opciones: {
+                            A: "Un meme de internet que se vuelve viral espontáneamente.",
+                            B: "Una unidad de significado estratégica, intencionalmente diseñada para incidir socioculturalmente.",
+                            C: "Una narrativa individual que se convierte en hegemónica.",
+                            D: "La capacidad de un sistema narrativo para auto-organizarse (autopoiesis)."
+                        },
+                        correcta: "B",
+                        justificacion: "El Meme Cognosistémico es definido como una unidad narrativa estratégica, deliberadamente diseñada para incidir socioculturalmente, actuando como vehículo, transformador y difusor de significados específicos en el Cognosistema. A diferencia del meme popular, este es un 'artefacto de intervención simbólica deliberada'."
+                    },
+                    {
+                        numero: 22,
+                        enunciado: "Según la tipología funcional de MC, ¿qué tipo de meme actúa como vector de cambio gradual, posibilitando la adaptación progresiva de estructuras narrativas sin generar una ruptura abrupta?",
+                        opciones: {
+                            A: "Meme de Consolidación.",
+                            B: "Meme de Fricción.",
+                            C: "Meme Hegemónico.",
+                            D: "Meme de Transición."
+                        },
+                        correcta: "D",
+                        justificacion: "Los Memes de Transición actúan como vectores de cambio gradual. Posibilitan la adaptación progresiva de estructuras narrativas sin generar una ruptura abrupta, facilitando la Fase Delta."
+                    },
+                    {
+                        numero: 23,
+                        enunciado: "¿Cuál es la función principal de los Memes de Fricción?",
+                        opciones: {
+                            A: "Reforzar y legitimar narrativas hegemónicas.",
+                            B: "Introducir tensiones narrativas confrontando marcos interpretativos dominantes.",
+                            C: "Consolidar el estado de equilibrio (Fase Beta).",
+                            D: "Reducir la plasticidad narrativa."
+                        },
+                        correcta: "B",
+                        justificacion: "Los Memes de Fricción introducen tensiones narrativas (fricciones), confrontan marcos interpretativos dominantes y abren espacios de disputa simbólica, siendo catalizadores de la Fase Alfa (crisis)."
+                    },
+                    {
+                        numero: 24,
+                        enunciado: "La TCCR identifica la dinámica de cambio cognosistémico en tres fases inspiradas en la Teoría Delta. ¿Cuál de ellas representa la etapa de estabilidad y resistencia al cambio por inercia narrativa?",
+                        opciones: {
+                            A: "Fase Alfa.",
+                            B: "Fase Delta.",
+                            C: "Fase Beta.",
+                            D: "Fase Omega."
+                        },
+                        correcta: "C",
+                        justificacion: "La Fase Beta (Estabilidad) es la etapa de consolidación, donde las narrativas dominantes se mantienen gracias a la inercia narrativa y a mecanismos de resistencia al cambio."
+                    },
+                    {
+                        numero: 25,
+                        enunciado: "En el contexto de la dinámica de cambio, ¿qué se conoce como 'Fricciones Narrativas'?",
+                        opciones: {
+                            A: "La tendencia a la estabilidad de un SNC.",
+                            B: "La incapacidad de un SNC para generar nuevos significados.",
+                            C: "Tensiones que surgen al enfrentarse narrativas con marcos interpretativos divergentes.",
+                            D: "El rechazo social a los memes de consolidación."
+                        },
+                        correcta: "C",
+                        justificacion: "Las Fricciones Narrativas son tensiones que surgen al enfrentarse narrativas con marcos interpretativos divergentes, lo cual genera una tendencia fuerte al dinamismo y son esenciales para impulsar ajustes y reconfiguraciones."
+                    },
+                    {
+                        numero: 26,
+                        enunciado: "Un 'Movimiento Ascendente' en la Movilidad Narrativa se produce cuando:",
+                        opciones: {
+                            A: "Un relato se desplaza, manteniéndose en un nivel jerárquico similar (Movilidad Horizontal).",
+                            B: "Una narrativa incrementa su posición en la jerarquía, por crisis sistémicas o adopción por actores influyentes.",
+                            C: "Una narrativa pierde su fuerza simbólica y disminuye su posición jerárquica (Movilidad Descendente).",
+                            D: "Se produce una reconfiguración interna sin impacto en la jerarquía."
+                        },
+                        correcta: "B",
+                        justificacion: "La Movilidad Ascendente es el desplazamiento jerárquico donde una narrativa incrementa su posición en la jerarquía. Esto se logra mediante crisis sistémicas, retroalimentación discursiva o adopción por actores influyentes."
+                    },
+                    {
+                        numero: 27,
+                        enunciado: "La Fase Alfa de la dinámica de cambio cognosistémico se caracteriza por:",
+                        opciones: {
+                            A: "La consolidación de nuevas narrativas hegemónicas.",
+                            B: "La desestabilización discursiva, donde las fricciones desafían el orden establecido.",
+                            C: "La reorganización sistémica y la emergencia de nuevas configuraciones simbólicas.",
+                            D: "El declive de las narrativas subyugadas."
+                        },
+                        correcta: "B",
+                        justificacion: "La Fase Alfa (Crisis) es la etapa de desestabilización discursiva. Las tensiones (fricciones) o las crisis sistémicas internas/externas desafían el orden establecido, marcando la ruptura con la estabilidad de la Fase Beta."
+                    },
+                    {
+                        numero: 28,
+                        enunciado: "¿Qué describe la 'Movilidad Horizontal' de las narrativas?",
+                        opciones: {
+                            A: "El ascenso de una narrativa desde el nivel micro al macro.",
+                            B: "La pérdida de fuerza simbólica de un relato.",
+                            C: "El desplazamiento o transformación del relato, manteniéndose en un nivel jerárquico similar.",
+                            D: "El cambio de una narrativa hegemónica a una subyugada."
+                        },
+                        correcta: "C",
+                        justificacion: "La Movilidad Horizontal se refiere al desplazamiento o transformación del relato, manteniéndose en un nivel jerárquico similar. Ocurre a través de fricciones y colaboraciones entre narrativas de parecido nivel jerárquico."
+                    },
+                    {
+                        numero: 29,
+                        enunciado: "¿Cuál es la tipología funcional de MC que busca reforzar y legitimar narrativas hegemónicas, diseminándose en múltiples niveles ecosistémicos?",
+                        opciones: {
+                            A: "Meme de Transición.",
+                            B: "Meme de Fricción.",
+                            C: "Meme de Consolidación.",
+                            D: "Meme Desafiante."
+                        },
+                        correcta: "C",
+                        justificacion: "Los Memes de Consolidación refuerzan y legitiman narrativas hegemónicas, logrando esto diseminándose en múltiples niveles ecosistémicos para estabilizar el Cognosistema."
+                    },
+                    {
+                        numero: 30,
+                        enunciado: "La Fase Delta del cambio cognosistémico se enfoca en:",
+                        opciones: {
+                            A: "La resistencia al cambio por inercia narrativa.",
+                            B: "La crisis y desestabilización discursiva.",
+                            C: "La reorganización sistémica y la emergencia de nuevas configuraciones simbólicas.",
+                            D: "La institucionalización de una narrativa que se vuelve 'natural'."
+                        },
+                        correcta: "C",
+                        justificacion: "La Fase Delta (Reconfiguración) es la etapa de transformación. Ocurre una reorganización sistémica y la emergencia de nuevas configuraciones simbólicas, produciendo el desplazamiento de la jerarquía narrativa."
+                    }
+                ]
+            },
+            {
+                level: 4,
+                title: "NIVEL 4 – ARTICULACIÓN MICRO, MESO Y MACRO",
+                items: [
+                    {
+                        numero: 31,
+                        enunciado: "En el marco multinivel del Cognosistema, ¿qué nivel abarca los sistemas narrativos que inciden indirectamente, como los marcos regulatorios o estructuras de políticas públicas?",
+                        opciones: {
+                            A: "Nivel Micro.",
+                            B: "Nivel Meso.",
+                            C: "Nivel Exo.",
+                            D: "Nivel Macro."
+                        },
+                        correcta: "C",
+                        justificacion: "El Nivel Exo incluye sistemas narrativos que inciden indirectamente en la vida cotidiana (p. ej., marcos regulatorios, lineamientos mediáticos, estructuras de políticas públicas) sin interacción directa permanente con todos los sujetos."
+                    },
+                    {
+                        numero: 32,
+                        enunciado: "Las narrativas sobre la identidad personal y las autovaloraciones de un individuo operan predominantemente en el Nivel:",
+                        opciones: {
+                            A: "Meso.",
+                            B: "Exo.",
+                            C: "Macro.",
+                            D: "Micro."
+                        },
+                        correcta: "D",
+                        justificacion: "El Nivel Micro incluye narrativas intrapersonales/personales e interpersonales, tales como la identidad, las autovaloraciones y los relatos diádicos."
+                    },
+                    {
+                        numero: 33,
+                        enunciado: "¿Qué nivel del Cognosistema engloba las narrativas familiares, grupales, comunitarias y organizacionales?",
+                        opciones: {
+                            A: "Micro.",
+                            B: "Meso.",
+                            C: "Exo.",
+                            D: "Macro."
+                        },
+                        correcta: "B",
+                        justificacion: "El Nivel Meso se define por las narrativas familiares, grupales, comunitarias y organizacionales, que actúan como puentes entre los sistemas narrativos individuales y la estructura social amplia."
+                    },
+                    {
+                        numero: 34,
+                        enunciado: "Las ideologías, los valores culturales y los imaginarios socioculturales amplios se ubican en el Nivel:",
+                        opciones: {
+                            A: "Meso.",
+                            B: "Exo.",
+                            C: "Macro.",
+                            D: "Micro."
+                        },
+                        correcta: "C",
+                        justificacion: "El Nivel Macro incluye las ideologías, los valores culturales, las moralidades, las tradiciones y los imaginarios socioculturales amplios, que son las megaestructuras narrativas de la sociedad."
+                    },
+                    {
+                        numero: 35,
+                        enunciado: "La TCCR enfatiza la interconectividad entre los niveles. ¿Qué significa que se produzca una 'retroalimentación ascendente'?",
+                        opciones: {
+                            A: "Las directrices macro permearán hacia el nivel micro.",
+                            B: "Un cambio micro (ej., en una familia) logra escalar e impactar los sistemas narrativos meso o exo.",
+                            C: "El Cognosistema entra en Fase Beta (estabilidad).",
+                            D: "Dos narrativas de igual nivel entran en fricción horizontal."
+                        },
+                        correcta: "B",
+                        justificacion: "La interconectividad permite las retroalimentaciones. La Movilidad Ascendente se refiere a cuando un cambio micro logra escalar e impactar los sistemas narrativos meso o exo, lo cual es esencial para los procesos de cambio social desde la base."
+                    },
+                    {
+                        numero: 36,
+                        enunciado: "¿Cuál de los siguientes es un ejemplo de sistema narrativo que se ubicaría en el Nivel Exo del Cognosistema?",
+                        opciones: {
+                            A: "El relato de autovaloración de un estudiante.",
+                            B: "La narrativa fundacional de un barrio.",
+                            C: "Los lineamientos mediáticos de un canal de televisión nacional sobre un tema.",
+                            D: "Las discusiones de una junta de vecinos."
+                        },
+                        correcta: "C",
+                        justificacion: "Los lineamientos mediáticos de un canal nacional sobre un tema (políticas de contenido, encuadres narrativos) se consideran sistemas narrativos que inciden indirectamente a nivel de masas (Exo), sin ser una interacción directa permanente (Micro/Meso) ni la ideología fundamental de la sociedad (Macro)."
+                    },
+                    {
+                        numero: 37,
+                        enunciado: "El 'Cronosistema' dentro del modelo ecosistémico de la TCCR se refiere a:",
+                        opciones: {
+                            A: "La capacidad de un Cognosistema de adaptarse rápidamente.",
+                            B: "Las temporalidades históricas que moldean la estabilidad, crisis y transformación narrativa.",
+                            C: "El tiempo dedicado a la intervención psicosocial.",
+                            D: "La velocidad de propagación de los memes cognosistémicos."
+                        },
+                        correcta: "B",
+                        justificacion: "El Cronosistema se refiere a las temporalidades históricas (el factor tiempo) que moldean la estabilidad, la crisis y la transformación narrativa, enfatizando que no hay Cognosistema 'fuera del tiempo' (historicidad narrativa)."
+                    },
+                    {
+                        numero: 38,
+                        enunciado: "La TCCR propone una metodología de intervención profesional 'ecosistémica-narrativa'. ¿Cuál es su orientación clave?",
+                        opciones: {
+                            A: "Separar lo micro de lo macro para un análisis más limpio.",
+                            B: "Abordar problemas psicosociales articulando orgánicamente las dimensiones micro, meso y macro.",
+                            C: "Centrarse exclusivamente en la reescritura de narrativas individuales.",
+                            D: "Aplicar la TCCR solo en el ámbito de las políticas públicas (macro)."
+                        },
+                        correcta: "B",
+                        justificacion: "La metodología de intervención ecosistémica-narrativa está orientada a abordar las problemáticas psicosociales de manera integral, articulando de forma orgánica las dimensiones micro, meso y macro, promoviendo la transformación relacional junto con la justicia social."
+                    },
+                    {
+                        numero: 39,
+                        enunciado: "¿Cuál es una de las 'Reglas Duras' (Hard Constraints) de la TCCR para evitar errores conceptuales al usar el término Cognosistema?",
+                        opciones: {
+                            A: "El Cognosistema puede ser sinónimo de 'cultura'.",
+                            B: "Siempre se debe anclar el Cognosistema a una sociedad y preferir incluir el tiempo.",
+                            C: "La familia o la empresa pueden ser definidas como un Cognosistema.",
+                            D: "Es un simple 'discurso hegemónico'."
+                        },
+                        correcta: "B",
+                        justificacion: "Una de las 'Reglas Duras' es: 'Siempre anclar a una sociedad (y preferir incluir el tiempo)'. Las otras opciones son errores conceptuales explícitamente prohibidos."
+                    },
+                    {
+                        numero: 40,
+                        enunciado: "El Cognosistema se define como una 'malla' interconectada. ¿Qué proceso permite que los significados viajen y se ajusten entre sistemas narrativos?",
+                        opciones: {
+                            A: "La negación ideológica.",
+                            B: "La autopoiesis narrativa.",
+                            C: "La circulación memética y la negociación de sentidos.",
+                            D: "La estratificación rígida."
+                        },
+                        correcta: "C",
+                        justificacion: "La dinámica interna del Cognosistema incluye la circulación de significados (semánticas, símbolos y memes) y la negociación de sentidos (consensos, disensos, resignificaciones) entre los diferentes sistemas narrativos que componen la malla."
+                    }
+                ]
+            },
+            {
+                level: 5,
+                title: "NIVEL 5 – ANÁLISIS DEL SISTEMA NARRATIVO COGNOSISTÉMICO (SNC)",
+                items: [
+                    {
+                        numero: 41,
+                        enunciado: "Cuando un profesional analiza la intención de un relato: busca explicar, persuadir, coordinar o legitimar prácticas, ¿a qué elemento del SNC se está refiriendo?",
+                        opciones: {
+                            A: "Evaluación Cognitiva.",
+                            B: "Propósito Narrativo.",
+                            C: "Función Narrativa.",
+                            D: "Contenido Proposicional."
+                        },
+                        correcta: "B",
+                        justificacion: "El Propósito Narrativo es la intención narrativa que busca explicar, persuadir, coordinar o legitimar prácticas según la audiencia y el contexto, diferenciándose de la Función Narrativa, que son los efectos constatables."
+                    },
+                    {
+                        numero: 42,
+                        enunciado: "¿Qué concepto se define como el 'entorno histórico-cultural e institucional' que sitúa y da límites al sentido del relato?",
+                        opciones: {
+                            A: "Núcleo Narrativo.",
+                            B: "Contexto.",
+                            C: "Cronosistema.",
+                            D: "Cuerpo Narrativo."
+                        },
+                        correcta: "B",
+                        justificacion: "El Contexto es el elemento del SNC que sitúa el relato; es el entorno histórico-cultural e institucional que habilita o limita el sentido y la práctica del SNC."
+                    },
+                    {
+                        numero: 43,
+                        enunciado: "Un SNC se define como una configuración de significados que transforma experiencias en relatos. ¿Cuál es la clave para no confundir un SNC con el Cognosistema?",
+                        opciones: {
+                            A: "El SNC no tiene Actitud Epistémica.",
+                            B: "El SNC opera solo en el Nivel Macro.",
+                            C: "El SNC es una unidad dentro del Cognosistema de una sociedad específica.",
+                            D: "El SNC no posee función narrativa."
+                        },
+                        correcta: "C",
+                        justificacion: "El SNC no es el Cognosistema; es una unidad dentro de él. El Cognosistema es el suprasistema de la sociedad, mientras que el SNC es un tejido de sentido delimitable (personal, familiar, grupal, etc.) que opera en un nivel específico."
+                    },
+                    {
+                        numero: 44,
+                        enunciado: "Si un relato expresa una gran 'certeza' y 'resistencia a la revisión crítica', ¿qué elemento del SNC estaría caracterizando?",
+                        opciones: {
+                            A: "Percepciones y Emociones (con alto afecto).",
+                            B: "Actitud Epistémica (rígida).",
+                            C: "Evaluación Cognitiva (alta coherencia).",
+                            D: "Contenido Proposicional (abstracto)."
+                        },
+                        correcta: "B",
+                        justificacion: "La Actitud Epistémica es la disposición frente al conocimiento: certezas, dudas u aperturas; regula la revisión 'crítica' del relato. Una Actitud Epistémica rígida se asocia a alta certeza y resistencia a la revisión."
+                    },
+                    {
+                        numero: 45,
+                        enunciado: "La 'Experiencia' en el SNC es esencial porque:",
+                        opciones: {
+                            A: "Determina el nivel ecosistémico.",
+                            B: "Regula el poder narrativo (Jerarquía).",
+                            C: "Es la materia prima para construir sentido e identidad.",
+                            D: "Se confunde con el Propósito Narrativo."
+                        },
+                        correcta: "C",
+                        justificacion: "La Experiencia son los hechos vividos que sirven de base para el relato, siendo la materia prima para construir sentido e identidad en el sistema. Sin experiencia, el relato carece de anclaje empírico-vivido."
+                    },
+                    {
+                        numero: 46,
+                        enunciado: "¿Qué error conceptual está explícitamente prohibido al analizar la TCCR en relación con un SNC?",
+                        opciones: {
+                            A: "Confundir Propósito con Función.",
+                            B: "Analizar el SNC en el Nivel Micro.",
+                            C: "Usar la teoría memética de Richard Dawkins.",
+                            D: "Incluir el contexto histórico."
+                        },
+                        correcta: "A",
+                        justificacion: "Un 'Error Prohibido' (Bandera Roja) es explícitamente: 'Colapsar Núcleo ↔ Cuerpo o Propósito ↔ Función'. El propósito es la intención (el 'querer'), y la función son los efectos constatables (el 'hacer')."
+                    },
+                    {
+                        numero: 47,
+                        enunciado: "Si un trabajador social analiza el 'juicio sobre coherencia, evidencia y encaje ético' de un relato, ¿está examinando el 'Núcleo Narrativo' o el 'Cuerpo Narrativo'?",
+                        opciones: {
+                            A: "El Núcleo Narrativo (Contenido Proposicional).",
+                            B: "El Contexto.",
+                            C: "El Cuerpo Narrativo (Evaluación Cognitiva).",
+                            D: "La Actitud Epistémica."
+                        },
+                        correcta: "C",
+                        justificacion: "El Cuerpo Narrativo es la Evaluación Cognitiva, que es el juicio sobre la coherencia, la evidencia y el encaje sistémico y ético. El Núcleo Narrativo es el Contenido Proposicional (las afirmaciones abstractas)."
+                    },
+                    {
+                        numero: 48,
+                        enunciado: "El SNC es una 8tupla ordenada. La dependencia básica establece que el Propósito () depende de:",
+                        opciones: {
+                            A: "Experiencia, Percepciones/Emociones, y Contexto.",
+                            B: "Actitud Epistémica y Función.",
+                            C: "Contenido Proposicional y Evaluación Cognitiva.",
+                            D: "La Función Narrativa."
+                        },
+                        correcta: "C",
+                        justificacion: "La formalización mínima del SNC indica dependencias básicas: el Propósito () depende del Contenido Proposicional () y de la Evaluación Cognitiva (). La Función () depende del Propósito (). Experiencia, Percepciones/Emociones y Contexto son los insumos iniciales."
+                    },
+                    {
+                        numero: 49,
+                        enunciado: "El Propósito Narrativo está orientado a:",
+                        opciones: {
+                            A: "Solo a legitimar prácticas.",
+                            B: "Explicar, persuadir, coordinar o legitimar prácticas.",
+                            C: "Distribuir el poder y organizar los vínculos.",
+                            D: "Sólo a generar emociones positivas."
+                        },
+                        correcta: "B",
+                        justificacion: "El Propósito Narrativo es la intención narrativa que busca explicar, persuadir, coordinar o legitimar prácticas según la audiencia y el contexto, siendo un proceso complejo y multifuncional."
+                    },
+                    {
+                        numero: 50,
+                        enunciado: "Una regla de oro del análisis SNC es evitar 'Omitir Contexto'. ¿Por qué?",
+                        opciones: {
+                            A: "Porque el contexto es irrelevante.",
+                            B: "Porque el Contexto sitúa el relato y habilita o limita su sentido y práctica.",
+                            C: "Porque el Contexto define la hegemonía narrativa.",
+                            D: "Porque el Contexto es sinónimo de Experiencia."
+                        },
+                        correcta: "B",
+                        justificacion: "El Contexto es un elemento esencial del SNC. Omitirlo es un error porque es el entorno histórico, cultural e institucional que sitúa el relato y habilita o limita su sentido y su práctica."
+                    }
+                ]
+            },
+            {
+                level: 6,
+                title: "NIVEL 6 – PROFUNDIZACIÓN EN MEMES COGNOSISTÉMICOS",
+                items: [
+                    {
+                        numero: 51,
+                        enunciado: "¿Cuál es una diferencia clave entre el Meme Cognosistémico (MC) de la TCCR y la teoría memética clásica (Dawkins)?",
+                        opciones: {
+                            A: "El MC no es replicable.",
+                            B: "El MC es un artefacto de intervención simbólica deliberada con finalidad estratégica.",
+                            C: "El MC solo opera en el Nivel Micro.",
+                            D: "El MC no tiene cuerpo narrativo."
+                        },
+                        correcta: "B",
+                        justificacion: "El MC de la TCCR es concebido con una perspectiva relacional, narrativa y estratégica, siendo un artefacto de intervención simbólica deliberada (diseño intencional), a diferencia del meme clásico que es visto como una réplica darwiniana espontánea."
+                    },
+                    {
+                        numero: 52,
+                        enunciado: "¿Cuál de las siguientes NO es una función principal de un Meme Cognosistémico?",
+                        opciones: {
+                            A: "Incidir estratégicamente en la configuración del Cognosistema.",
+                            B: "Vehiculizar, transformar y propagar significados a través de niveles ecosistémicos.",
+                            C: "Servir como la base ontológica del ser humano relacional.",
+                            D: "Actuar como agente de intervención simbólica deliberada."
+                        },
+                        correcta: "C",
+                        justificacion: "El MC es una unidad narrativa táctica. La base ontológica del ser humano relacional es parte de la propuesta filosófica de la TCCR, no del rol del meme."
+                    },
+                    {
+                        numero: 53,
+                        enunciado: "Si un MC se diseña para desplazar narrativas previas y está en transición hacia la hegemonía, ¿a qué tipología funcional pertenecería en su origen?",
+                        opciones: {
+                            A: "Consolidación.",
+                            B: "Transición.",
+                            C: "Fricción.",
+                            D: "Emergente."
+                        },
+                        correcta: "B",
+                        justificacion: "Si el meme se diseña para un cambio gradual y posibilita la adaptación progresiva, pertenece a la tipología de Transición. La categoría 'Emergente' es para las narrativas en la jerarquía, no para la tipología funcional del meme."
+                    },
+                    {
+                        numero: 54,
+                        enunciado: "El 'Núcleo Semántico' de un Meme Cognosistémico se caracteriza por ser:",
+                        opciones: {
+                            A: "Rígido e inmutable.",
+                            B: "La esencia central, diseñado mediante modelado narrativo y flexible.",
+                            C: "Sinónimo del Contenido Proposicional del SNC.",
+                            D: "La justificación de la narrativa."
+                        },
+                        correcta: "B",
+                        justificacion: "El Núcleo Semántico es la esencia central del meme, diseñado mediante modelado narrativo, y es flexible para ser apropiable por distintos agentes narrativos en diversos contextos."
+                    },
+                    {
+                        numero: 55,
+                        enunciado: "¿Qué función tiene el potencial de viralización de un MC?",
+                        opciones: {
+                            A: "Limitar su circulación al Nivel Micro.",
+                            B: "Demostrar su falta de diseño estratégico.",
+                            C: "Facilitar su capacidad para sintetizar narrativas complejas en formas simbólicas condensadas, maximizando su difusión.",
+                            D: "Estabilizar el Cognosistema en la Fase Beta."
+                        },
+                        correcta: "C",
+                        justificacion: "El alto potencial de viralización del MC se debe a su capacidad para sintetizar narrativas complejas en formas simbólicas condensadas, lo que permite su rápida difusión entre los distintos niveles ecosistémicos."
+                    },
+                    {
+                        numero: 56,
+                        enunciado: "Los memes cognosistémicos pueden usar medios escritos, gráficos, audiovisuales, simbólicos, etc. Esto se relaciona con su naturaleza de:",
+                        opciones: {
+                            A: "Unidades de significado estratégicas.",
+                            B: "Narrativas subyugadas.",
+                            C: "Autopoiesis narrativa.",
+                            D: "Fricciones narrativas."
+                        },
+                        correcta: "A",
+                        justificacion: "La capacidad de usar diversos medios subraya que el MC es una unidad de significado estratégica, intencionalmente creada y diseñada para la difusión y modulación del sentido en el Cognosistema."
+                    },
+                    {
+                        numero: 57,
+                        enunciado: "¿Qué tipo de meme tiene como finalidad introducir tensiones narrativas y confrontar marcos interpretativos dominantes?",
+                        opciones: {
+                            A: "Meme de Fricción.",
+                            B: "Meme de Transición.",
+                            C: "Meme de Consolidación.",
+                            D: "Meme Hegemónico."
+                        },
+                        correcta: "A",
+                        justificacion: "El Meme de Fricción introduce tensiones narrativas y confronta marcos interpretativos dominantes, abriendo espacios de disputa simbólica. Están directamente relacionados con la generación de la Fase Alfa (Crisis)."
+                    },
+                    {
+                        numero: 58,
+                        enunciado: "El Meme Cognosistémico actúa como un 'catalizador de cambio'. ¿Cuál es el principal efecto de esto en el Cognosistema?",
+                        opciones: {
+                            A: "Congelar las narrativas hegemónicas.",
+                            B: "Acelerar la reorganización de sentidos.",
+                            C: "Reducir la interdependencia entre niveles.",
+                            D: "Eliminar todas las fricciones narrativas."
+                        },
+                        correcta: "B",
+                        justificacion: "Como catalizador de cambio, el MC acelera la reorganización de sentidos. Su función principal es incidir estratégicamente en la configuración del Cognosistema, bien sea desplazando, reforzando o resignificando sistemas de sentido."
+                    },
+                    {
+                        numero: 59,
+                        enunciado: "Si el MC se diseña para reforzar narrativas que se perciben como 'naturales', su tipología funcional es:",
+                        opciones: {
+                            A: "Transición.",
+                            B: "Fricción.",
+                            C: "Consolidación.",
+                            D: "Desafiante."
+                        },
+                        correcta: "C",
+                        justificacion: "Los Memes de Consolidación refuerzan y legitiman narrativas hegemónicas, las cuales son percibidas como 'naturales' y diseminan su sentido en múltiples niveles ecosistémicos."
+                    },
+                    {
+                        numero: 60,
+                        enunciado: "El MC debe evitar 'Reducirlo a meme viral' para el análisis. La TCCR exige, en su lugar, enfatizar:",
+                        opciones: {
+                            A: "Su origen espontáneo.",
+                            B: "Su diseño estratégico y encaje contextual/ético.",
+                            C: "Su rol como Narrativa Subyugada.",
+                            D: "Su limitación a un medio (ej. sólo gráficos)."
+                        },
+                        correcta: "B",
+                        justificacion: "El error de reducirlo a 'meme viral' se evita al enfatizar su diseño estratégico y encaje contextual/ético, es decir, el 'artefacto de intervención simbólica deliberada' con un propósito y una función definida, y revisando la ética de su uso (Justicia Relacional)."
+                    }
+                ]
+            },
+            {
+                level: 7,
+                title: "NIVEL 7 – FASES DE CAMBIO Y ESTRATIFICACIÓN NARRATIVA",
+                items: [
+                    {
+                        numero: 61,
+                        enunciado: "La 'Jerarquía de narrativas' en el Cognosistema implica que:",
+                        opciones: {
+                            A: "Todas las narrativas tienen el mismo peso y poder.",
+                            B: "El orden es estático y no puede ser modificado.",
+                            C: "Las narrativas están estratificadas y varían en su capacidad para estructurar la realidad intersubjetiva.",
+                            D: "Solo las narrativas micro son relevantes."
+                        },
+                        correcta: "C",
+                        justificacion: "La jerarquía es una estructura dinámica multinivel y altamente estratificada. Las narrativas varían en función de su capacidad para estructurar la realidad intersubjetiva (poder narrativo), según el nivel ecosistémico que han alcanzado."
+                    },
+                    {
+                        numero: 62,
+                        enunciado: "¿Qué fase de la dinámica de cambio se gatilla por fricciones o crisis sistémicas que desafían el orden establecido?",
+                        opciones: {
+                            A: "Fase Beta.",
+                            B: "Fase Delta.",
+                            C: "Fase Alfa.",
+                            D: "Fase Omega."
+                        },
+                        correcta: "C",
+                        justificacion: "La Fase Alfa (Crisis) es la etapa de desestabilización discursiva. Las tensiones (fricciones) o las crisis sistémicas internas/externas desafían el orden establecido, rompiendo la inercia de la Fase Beta."
+                    },
+                    {
+                        numero: 63,
+                        enunciado: "En la jerarquía narrativa, ¿qué tipo de relatos se caracterizan por una 'aceptación pasiva del orden' y tienden a reforzar las desigualdades, sin un cuestionamiento directo?",
+                        opciones: {
+                            A: "Narrativas subyugadas.",
+                            B: "Narrativas resignadas.",
+                            C: "Narrativas desafiantes.",
+                            D: "Narrativas hegemónicas."
+                        },
+                        correcta: "B",
+                        justificacion: "Las narrativas resignadas se caracterizan por la aceptación pasiva del orden, reforzando desigualdades sin desafiar la estructura fundamental del Cognosistema."
+                    },
+                    {
+                        numero: 64,
+                        enunciado: "¿Qué se conoce como 'Movilidad Descendente' en la dinámica narrativa?",
+                        opciones: {
+                            A: "El aumento de la posición jerárquica de una narrativa.",
+                            B: "La pérdida de fuerza simbólica y disminución de la posición jerárquica por desacreditación o rechazo social.",
+                            C: "La transformación de un relato, manteniéndose en el mismo nivel.",
+                            D: "La Fase Beta (estabilidad)."
+                        },
+                        correcta: "B",
+                        justificacion: "La Movilidad Descendente es cuando una narrativa pierde su fuerza simbólica y disminuye su posición jerárquica. Se produce por desacreditación interna, rechazo social o competencia discursiva."
+                    },
+                    {
+                        numero: 65,
+                        enunciado: "Las fricciones narrativas cumplen una función estructural esencial. ¿Cuál es?",
+                        opciones: {
+                            A: "Mantener la hegemonía a cualquier costo.",
+                            B: "Generar crisis que impulsan ajustes y reconfiguraciones para restablecer el equilibrio cognosistémico.",
+                            C: "Reducir la complejidad narrativa a un solo discurso.",
+                            D: "Facilitar el surgimiento de narrativas subyugadas."
+                        },
+                        correcta: "B",
+                        justificacion: "Las fricciones son esenciales. Cumplen una función estructural al generar crisis que impulsan ajustes y reconfiguraciones para restablecer el equilibrio cognosistémico, siendo el motor de la Fase Alfa y la transición a Delta."
+                    },
+                    {
+                        numero: 66,
+                        enunciado: "¿Qué narrativas son aquellas que 'cuestionan al poder y proponen alternativas' al orden establecido?",
+                        opciones: {
+                            A: "Narrativas adaptativas.",
+                            B: "Narrativas desafiantes.",
+                            C: "Narrativas resilientes.",
+                            D: "Narrativas resignadas."
+                        },
+                        correcta: "B",
+                        justificacion: "Las narrativas desafiantes cuestionan al poder y proponen alternativas. Son agentes activos de cambio y se asocian a la Movilidad Ascendente y a la generación de la Fase Alfa."
+                    },
+                    {
+                        numero: 67,
+                        enunciado: "La Fase Delta se identifica con:",
+                        opciones: {
+                            A: "La desestabilización discursiva.",
+                            B: "La consolidación de narrativas dominantes.",
+                            C: "La reorganización y la emergencia de nuevas configuraciones simbólicas (transformación).",
+                            D: "La aceptación pasiva del orden social."
+                        },
+                        correcta: "C",
+                        justificacion: "La Fase Delta (Reconfiguración) es la etapa de transformación. Ocurre una reorganización sistémica y la emergencia de nuevas configuraciones simbólicas, lo que implica una redistribución del poder narrativo."
+                    },
+                    {
+                        numero: 68,
+                        enunciado: "Según el ciclo vital, la etapa de 'Renovación' se define como:",
+                        opciones: {
+                            A: "El inicio de una narrativa a partir de una nueva experiencia.",
+                            B: "La adaptación progresiva de la narrativa a cambios micro y macro tras una crisis.",
+                            C: "La institucionalización de la narrativa dominante.",
+                            D: "La aceptación pasiva del declive."
+                        },
+                        correcta: "B",
+                        justificacion: "La Renovación es la fase de regeneración narrativa tras una crisis. Reorganiza el sentido y adapta la narrativa a cambios micro y macro, marcando el inicio de un nuevo ciclo espiral, mientras que la A es 'Surgimiento' y la C es 'Madurez'."
+                    },
+                    {
+                        numero: 69,
+                        enunciado: "La 'permeabilidad entre capas del Cognosistema' es esencial para el cambio. Esta permeabilidad se refiere a:",
+                        opciones: {
+                            A: "La capacidad de un individuo para ignorar las narrativas macro.",
+                            B: "La posibilidad de interacción y desplazamiento jerárquico (ascendente, descendente u horizontal) entre los niveles.",
+                            C: "La rigidez de las narrativas hegemónicas.",
+                            D: "El uso exclusivo de memes de consolidación."
+                        },
+                        correcta: "B",
+                        justificacion: "La permeabilidad entre capas del Cognosistema permite la interacción y el desplazamiento jerárquico (movilidad ascendente, descendente u horizontal) entre los niveles, lo que es clave en la dinámica de cambio cognosistémico."
+                    },
+                    {
+                        numero: 70,
+                        enunciado: "¿Qué Narrativas se encuentran en la base de la jerarquía, caracterizándose por ser 'voces marginales sin legitimidad ni poder'?",
+                        opciones: {
+                            A: "Narrativas adaptativas.",
+                            B: "Narrativas desafiantes.",
+                            C: "Narrativas subyugadas.",
+                            D: "Narrativas dominantes emergentes."
+                        },
+                        correcta: "C",
+                        justificacion: "Las narrativas subyugadas se encuentran en la base de la jerarquía. Son voces marginales sin legitimidad ni poder, pero su existencia es esencial para generar las fricciones que eventualmente pueden impulsar el cambio."
+                    }
+                ]
+            },
+            {
+                level: 8,
+                title: "NIVEL 8 – PROPIEDADES ESENCIALES DEL COGNOSISTEMA",
+                items: [
+                    {
+                        numero: 71,
+                        enunciado: "¿Qué propiedad del Cognosistema implica que 'el todo es más que la suma de relatos'?",
+                        opciones: {
+                            A: "Multinivelidad.",
+                            B: "Apertura Sistémica.",
+                            C: "Suprasinergia Narrativa.",
+                            D: "Plasticidad Narrativa."
+                        },
+                        correcta: "C",
+                        justificacion: "La Suprasinergia Narrativa es una de las propiedades esenciales del Cognosistema. Se refiere a que la arquitectura relacional de significados tiene propiedades emergentes, es decir, el todo es más que la suma de relatos."
+                    },
+                    {
+                        numero: 72,
+                        enunciado: "La TCCR establece que un Cognosistema tiene 'Regulación por poder'. Esto significa que:",
+                        opciones: {
+                            A: "El Cognosistema siempre está en Fase Beta.",
+                            B: "Está ordenado por fuerzas de poder/peso narrativo (saber/poder, hegemonía, contrahegemonía).",
+                            C: "La autopoiesis es irrelevante.",
+                            D: "Las narrativas subyugadas no existen."
+                        },
+                        correcta: "B",
+                        justificacion: "La Regulación por Poder es una propiedad esencial. Implica que el Cognosistema está ordenado por fuerzas de poder/peso narrativo (saber/poder, hegemonía, contrahegemonía, gubernamentalidades), lo que da origen a su estructura jerárquica."
+                    },
+                    {
+                        numero: 73,
+                        enunciado: "¿Cuál propiedad se refiere a la capacidad de reconfiguración de narrativas y sus enlaces ante nuevas condiciones?",
+                        opciones: {
+                            A: "Autopoiesis Narrativa.",
+                            B: "Temporalidad Histórica.",
+                            C: "Plasticidad Narrativa.",
+                            D: "Multinivelidad."
+                        },
+                        correcta: "C",
+                        justificacion: "La Plasticidad Narrativa es la capacidad de mutar y adaptarse (reconfiguración) ante nuevas condiciones (tecnologías, migraciones, crisis, políticas), siendo clave para la resiliencia del Cognosistema."
+                    },
+                    {
+                        numero: 74,
+                        enunciado: "El requisito de que el Cognosistema no puede ser 'fuera del tiempo' se relaciona con la propiedad de:",
+                        opciones: {
+                            A: "Plasticidad Narrativa.",
+                            B: "Temporalidad Histórica.",
+                            C: "Apertura Sistémica.",
+                            D: "Suprasinergia Narrativa."
+                        },
+                        correcta: "B",
+                        justificacion: "La Temporalidad Histórica es la propiedad que establece que el Cognosistema se configura en periodos y su sentido solo puede comprenderse si se considera su trayectoria histórica (Cronosistema). No existe Cognosistema 'fuera del tiempo'."
+                    },
+                    {
+                        numero: 75,
+                        enunciado: "La 'Apertura Sistémica' del Cognosistema implica:",
+                        opciones: {
+                            A: "Que no permite la entrada de memes de fricción.",
+                            B: "Intercambio e influencia con otros Cognosistemas y entornos sociomateriales.",
+                            C: "Que no es jerárquico.",
+                            D: "Su independencia total del contexto."
+                        },
+                        correcta: "B",
+                        justificacion: "La Apertura Sistémica es la propiedad que permite el intercambio con otros Cognosistemas y entornos sociomateriales. Esto le otorga la capacidad de recibir influencias externas y adaptarse."
+                    },
+                    {
+                        numero: 76,
+                        enunciado: "La propiedad de 'Multinivelidad y multicapas' es importante porque:",
+                        opciones: {
+                            A: "Asegura que solo las narrativas macro sean analizadas.",
+                            B: "Permite ignorar la interdependencia entre sistemas narrativos.",
+                            C: "Integra narrativas en capas micro, meso, exo y macro, reconociendo la complejidad relacional.",
+                            D: "Reduce el Cognosistema a un simple 'discurso hegemónico'."
+                        },
+                        correcta: "C",
+                        justificacion: "La Multinivelidad y Multicapas es la propiedad que integra narrativas en capas micro, meso, exo y macro, reconociendo la complejidad relacional y las interdependencias entre sistemas narrativos en diferentes escalas."
+                    },
+                    {
+                        numero: 77,
+                        enunciado: "¿Qué concepto de la TCCR se refiere a los desplazamientos jerárquicos de las narrativas (ascendente, descendente u horizontal) dentro del Cognosistema?",
+                        opciones: {
+                            A: "Plasticidad Narrativa.",
+                            B: "Autopoiesis Narrativa.",
+                            C: "Movilidad Narrativa.",
+                            D: "Hegemonía Narrativa."
+                        },
+                        correcta: "C",
+                        justificacion: "La Movilidad Narrativa se refiere específicamente a los desplazamientos jerárquicos que experimentan las narrativas cuando emergen nuevos sentidos o cuando se generan fricciones entre los niveles cognosistémicos (movimientos ascendentes, descendentes u horizontales)."
+                    },
+                    {
+                        numero: 78,
+                        enunciado: "Un error conceptual frecuente es reducir el Cognosistema a una 'ideología única'. ¿Cuál propiedad ayuda a evitar este error?",
+                        opciones: {
+                            A: "Temporalidad Histórica.",
+                            B: "Regulación por Poder (contiene hegemonía, contrahegemonía, etc.).",
+                            C: "Plasticidad Narrativa.",
+                            D: "Suprasinergia Narrativa."
+                        },
+                        correcta: "B",
+                        justificacion: "El Cognosistema contiene múltiples ideologías y narrativas en relaciones jerárquicas y de fricción. La propiedad de Regulación por Poder subraya la existencia de hegemonía, pero también de contrahegemonía y narrativas desafiantes o subyugadas, evitando reducirlo a una ideología única."
+                    },
+                    {
+                        numero: 79,
+                        enunciado: "Un 'Patrón de cambio típico' en el Cognosistema es el 'Shock exógeno' que produce:",
+                        opciones: {
+                            A: "Aumento de fricciones y potencial caída de narrativas dominantes.",
+                            B: "Estabilización inmediata del Cognosistema en Fase Beta.",
+                            C: "La eliminación total de la Temporalidad Histórica.",
+                            D: "La Movilidad Horizontal permanente."
+                        },
+                        correcta: "A",
+                        justificacion: "Un shock exógeno (crisis política/tecnológica) típicamente produce un aumento de fricciones (Fase Alfa), lo que lleva a la caída de narrativas dominantes y al posible ascenso de narrativas desafiantes (Fase Delta)."
+                    },
+                    {
+                        numero: 80,
+                        enunciado: "La TCCR se enfoca en la 'intersección psicosocial' (interacción mente-sociedad). Este es el núcleo de estudio y acción que busca dotar a la disciplina de Trabajo Social de:",
+                        opciones: {
+                            A: "Una especificidad teórica propia y coherente.",
+                            B: "Un enfoque exclusivamente clínico.",
+                            C: "Un modelo de intervención sin anclaje ético.",
+                            D: "La eliminación de la perspectiva ecosistémica."
+                        },
+                        correcta: "A",
+                        justificacion: "La TCCR aborda una debilidad histórica del Trabajo Social al proponer un marco conceptual propio y coherente, centrándose en la 'intersección psicosocial' como su núcleo de estudio para superar la fragmentación epistemológica de la disciplina."
+                    }
+                ]
+            },
+            {
+                level: 9,
+                title: "NIVEL 9 – INTERVENCIÓN Y ANÁLISIS APLICADO",
+                items: [
+                    {
+                        numero: 81,
+                        enunciado: "Un Trabajador Social (TS) basado en TCCR diseña un 'Meme de Transición'. ¿Cuál es su objetivo en relación con el Cognosistema?",
+                        opciones: {
+                            A: "Generar una ruptura abrupta e inmediata del status quo (Fase Alfa).",
+                            B: "Reforzar una narrativa hegemónica para asegurar la Fase Beta.",
+                            C: "Adaptar progresivamente estructuras narrativas hacia una reconfiguración (Fase Delta).",
+                            D: "Limitar la difusión del significado al nivel micro."
+                        },
+                        correcta: "C",
+                        justificacion: "Los Memes de Transición son vectores de cambio gradual. Buscan posibilitar la adaptación progresiva de estructuras narrativas sin generar una ruptura abrupta, facilitando la Reconfiguración (Fase Delta)."
+                    },
+                    {
+                        numero: 82,
+                        enunciado: "Si el TS trabaja para fortalecer una 'Narrativa Desafiante' mediante la adopción por actores influyentes, ¿qué tipo de Movilidad Narrativa está buscando generar?",
+                        opciones: {
+                            A: "Movilidad Descendente.",
+                            B: "Movilidad Horizontal.",
+                            C: "Movilidad Ascendente.",
+                            D: "Movilidad Estática."
+                        },
+                        correcta: "C",
+                        justificacion: "El fortalecimiento y la adopción por actores influyentes buscan incrementar la posición de la narrativa en la jerarquía, lo que se define como Movilidad Ascendente."
+                    },
+                    {
+                        numero: 83,
+                        enunciado: "La metodología de intervención de la TCCR es 'ecosistémica-narrativa'. Esto significa que:",
+                        opciones: {
+                            A: "Solo se enfoca en la narratividad individual.",
+                            B: "Busca la transformación social y la justicia social articulando micro, meso y macro.",
+                            C: "Depende de modelos analíticos exógenos.",
+                            D: "Solo se aplica para la comprensión de Cognosistemas pasados."
+                        },
+                        correcta: "B",
+                        justificacion: "La metodología ecosistémica-narrativa busca la transformación relacional junto con la justicia social, abordando las problemáticas psicosociales de manera integral y articulando orgánicamente las dimensiones micro, meso y macro."
+                    },
+                    {
+                        numero: 84,
+                        enunciado: "Para analizar el 'Contenido Proposicional' (Núcleo Narrativo) de un grupo comunitario, el TS debe identificar:",
+                        opciones: {
+                            A: "Los filtros emocionales (Percepciones y Emociones).",
+                            B: "Las afirmaciones nucleares y abstractas: ¿qué se sostiene? ¿por qué?",
+                            C: "Los hechos vividos (Experiencia).",
+                            D: "La intención de persuadir (Propósito Narrativo)."
+                        },
+                        correcta: "B",
+                        justificacion: "El Contenido Proposicional se refiere a las afirmaciones nucleares del relato (de tipo abstracta), es decir, qué se sostiene, por qué y con qué alcances. Es el cuerpo teórico-conceptual del SNC."
+                    },
+                    {
+                        numero: 85,
+                        enunciado: "Un meme con el núcleo 'La pobreza es culpa del individuo' y que se disemina en los medios de comunicación (Exo) para mantener la inercia narrativa, es un ejemplo de:",
+                        opciones: {
+                            A: "Meme de Fricción.",
+                            B: "Meme Desafiante.",
+                            C: "Meme de Consolidación.",
+                            D: "Meme de Transición."
+                        },
+                        correcta: "C",
+                        justificacion: "Al reforzar y legitimar una narrativa hegemónica (culpabilización individual) y diseminarse en niveles amplios (Exo), está diseñado para consolidar el Cognosistema en la Fase Beta, por lo que es un Meme de Consolidación."
+                    },
+                    {
+                        numero: 86,
+                        enunciado: "¿Qué se debe buscar en el análisis para determinar la 'Función Narrativa' de un relato?",
+                        opciones: {
+                            A: "La intención declarada del emisor.",
+                            B: "Los efectos relacionales constatables en el comportamiento humano y la distribución de poder.",
+                            C: "La coherencia lógica del relato.",
+                            D: "El contexto histórico-cultural."
+                        },
+                        correcta: "B",
+                        justificacion: "La Función Narrativa se refiere a los efectos constatables. Organiza sentido, coordina vínculos, distribuye poder y orienta decisiones con efectos relacionales en el comportamiento humano. Es la dimensión práctica del SNC."
+                    },
+                    {
+                        numero: 87,
+                        enunciado: "Si un TS diagnostica que un Cognosistema está en 'Fase Alfa', su intervención debería orientarse primariamente a:",
+                        opciones: {
+                            A: "Usar Memes de Consolidación para volver a la Fase Beta.",
+                            B: "Estabilizar las narrativas hegemónicas a toda costa.",
+                            C: "Canalizar las fricciones, visibilizar alternativas y facilitar la transición a la Fase Delta.",
+                            D: "Eliminar el Cronosistema."
+                        },
+                        correcta: "C",
+                        justificacion: "En Fase Alfa (Crisis), la estrategia es la transformación. Esto implica canalizar las fricciones, visibilizar narrativas desafiantes y resilientes, y usar Memes de Transición para facilitar la reorganización hacia la Fase Delta."
+                    },
+                    {
+                        numero: 88,
+                        enunciado: "Un sistema narrativo familiar (Meso) experimenta una 'Movilidad Ascendente' si:",
+                        opciones: {
+                            A: "Adopta pasivamente una narrativa hegemónica (Descendente).",
+                            B: "Se vuelve subyugado.",
+                            C: "Su relato de resiliencia es adoptado como modelo por la institución escolar (Exo) con la que interactúa.",
+                            D: "Mantiene su relato sin cambios (Horizontal)."
+                        },
+                        correcta: "C",
+                        justificacion: "La Movilidad Ascendente ocurre cuando un sistema narrativo de un nivel inferior incrementa su posición en la jerarquía, por ejemplo, cuando un relato Meso (familiar) logra escalar e impactar los sistemas Exo (institucional) o Macro."
+                    },
+                    {
+                        numero: 89,
+                        enunciado: "Según la TCCR, ¿por qué la disciplina del Trabajo Social había carecido históricamente de una especificidad teórica propia?",
+                        opciones: {
+                            A: "Por enfocarse demasiado en el nivel macro.",
+                            B: "Por no tener un objeto de estudio claro.",
+                            C: "Por la fragmentación epistemológica y la dependencia de modelos analíticos exógenos.",
+                            D: "Por ignorar completamente la perspectiva ecosistémica."
+                        },
+                        correcta: "C",
+                        justificacion: "La TCCR surge como respuesta a la 'histórica ausencia de una arquitectura conceptual propia' en el Trabajo Social, buscando superar la 'fragmentación epistemológica y la dependencia de modelos analíticos exógenos' que han caracterizado la trayectoria de la profesión."
+                    },
+                    {
+                        numero: 90,
+                        enunciado: "La TCCR establece que la estabilidad del macrosistema jurídico radica en:",
+                        opciones: {
+                            A: "La rigidez absoluta de sus normas.",
+                            B: "Su capacidad para reinterpretarse sin perder su función de regulador, manteniendo coherencia con los sistemas moralistas predominantes.",
+                            C: "Su independencia total de los sistemas narrativos micro.",
+                            D: "La eliminación de toda fricción narrativa."
+                        },
+                        correcta: "B",
+                        justificacion: "Las fuentes indican que la estabilidad del macrosistema jurídico no radica en la rigidez de sus normas, sino en su capacidad para reinterpretarse sin perder su función de regulador de la convivencia social, ajustando sus relatos para preservar la estabilidad cultural y política (coherencia con los sistemas moralistas)."
+                    }
+                ]
+            },
+            {
+                level: 10,
+                title: "NIVEL 10 – SÍNTESIS Y COMPRENSIÓN GLOBAL DE LA TCCR",
+                items: [
+                    {
+                        numero: 91,
+                        enunciado: "La TCCR busca consolidar la disciplina del Trabajo Social como la ciencia social y humana de:",
+                        opciones: {
+                            A: "La gestión de recursos.",
+                            B: "La justicia distributiva.",
+                            C: "La relacionalidad.",
+                            D: "La psicología cognitiva."
+                        },
+                        correcta: "C",
+                        justificacion: "La TCCR busca 'comenzar el camino de consolidación de la disciplina del Trabajo Social como la ciencia social y humana de la relacionalidad', proponiendo un enfoque ontológico, epistemológico y metodológico riguroso y actualizado."
+                    },
+                    {
+                        numero: 92,
+                        enunciado: "Según la TCCR, si un individuo está construyendo su identidad personal, ¿a qué se reduce su realidad psicosocial?",
+                        opciones: {
+                            A: "A una entidad objetiva y preexistente.",
+                            B: "Al discurso hegemónico de su sociedad.",
+                            C: "A la creación e intercambio de significados en redes de interacción (procesos narrativos).",
+                            D: "A su mapa mental personal (Cognosistema individual)."
+                        },
+                        correcta: "C",
+                        justificacion: "La TCCR establece que la realidad psicosocial no es una entidad objetiva ni preexistente, sino que se configura mediante la creación e intercambio de significados en redes de interacción, a través de procesos narrativos en múltiples niveles ecosistémicos."
+                    },
+                    {
+                        numero: 93,
+                        enunciado: "¿Qué se debe entender por 'Plasticidad Narrativa' en el contexto del Cognosistema?",
+                        opciones: {
+                            A: "La capacidad de las narrativas hegemónicas para volverse rígidas.",
+                            B: "La incapacidad de un SNC para transformarse.",
+                            C: "La capacidad del Cognosistema de mutar y adaptarse ante nuevas condiciones.",
+                            D: "Un sinónimo de 'Jerarquía de narrativas'."
+                        },
+                        correcta: "C",
+                        justificacion: "La Plasticidad Narrativa es la capacidad del Cognosistema para mutar y adaptarse ante nuevas condiciones (tecnologías, migraciones, crisis, políticas), siendo una de las 'Propiedades Esenciales' del suprasistema."
+                    },
+                    {
+                        numero: 94,
+                        enunciado: "La TCCR se enfoca en la reconfiguración co-construida de sistemas relacionales y narrativos disfuncionales. ¿Qué concepto captura esta naturaleza sistémica y relacional?",
+                        opciones: {
+                            A: "Modelo de la Teoría Delta (Tharp).",
+                            B: "Ontología sistémico-relacional.",
+                            C: "Epistemología tradicional.",
+                            D: "Memética clásica (Dawkins)."
+                        },
+                        correcta: "B",
+                        justificacion: "La Ontología Sistémico-Relacional concibe al ser humano en esencia como un ser social y relacional, profundamente enraizado en los entramados de vínculos que conforman la realidad psicosocial, siendo el pilar filosófico de la TCCR."
+                    },
+                    {
+                        numero: 95,
+                        enunciado: "La 'Evaluación Cognitiva' (Cuerpo Narrativo) debe ser entendida como:",
+                        opciones: {
+                            A: "El juicio de valor puramente emocional.",
+                            B: "El juicio sobre coherencia, evidencia y encaje sistémico y ético del relato.",
+                            C: "La intención de la narrativa (Propósito).",
+                            D: "La materia prima del relato (Experiencia)."
+                        },
+                        correcta: "B",
+                        justificacion: "La Evaluación Cognitiva (Cuerpo Narrativo) es el juicio sobre la coherencia, la evidencia y los efectos, contrastando datos, inferencias y el encaje sistémico y ético del relato, orientando la justificación de la acción."
+                    },
+                    {
+                        numero: 96,
+                        enunciado: "Si una narrativa se encuentra en la etapa de 'Surgimiento' de su ciclo vital, se caracteriza por:",
+                        opciones: {
+                            A: "Ser dominante y resistir cambios (Madurez).",
+                            B: "Estar en crisis o desestabilización (Declive/Transformación).",
+                            C: "Estar abierta, adaptarse al contexto y nacer a partir de una experiencia.",
+                            D: "Haber pasado por una crisis y estar reorganizándose (Renovación)."
+                        },
+                        correcta: "C",
+                        justificacion: "El Surgimiento es el nacimiento del sistema narrativo; emerge abierto y se adapta al contexto, respondiendo a la necesidad de dar sentido a la realidad a partir de experiencias iniciales."
+                    },
+                    {
+                        numero: 97,
+                        enunciado: "¿Cuál es el concepto clave que articula la TCCR como respuesta a la ausencia de una arquitectura conceptual propia en el Trabajo Social?",
+                        opciones: {
+                            A: "Justicia Social.",
+                            B: "Fragmentación Epistemológica.",
+                            C: "Cognosistema.",
+                            D: "Modelo Ecosistémico de Bronfenbrenner."
+                        },
+                        correcta: "C",
+                        justificacion: "La TCCR se estructura en torno al concepto de 'Cognosistema', entendido como el entramado narrativo intersubjetivo que configura la realidad psicosocial humana, siendo el concepto central para dotar a la disciplina de un marco conceptual propio."
+                    },
+                    {
+                        numero: 98,
+                        enunciado: "Una 'Fricción Narrativa' tiene como efecto directo en el Cognosistema la tendencia a:",
+                        opciones: {
+                            A: "La eliminación de toda narración.",
+                            B: "El dinamismo y la generación de crisis que impulsan ajustes.",
+                            C: "La rigidez de las narrativas micro.",
+                            D: "La Movilidad Descendente permanente."
+                        },
+                        correcta: "B",
+                        justificacion: "Las Fricciones Narrativas son tensiones que surgen al enfrentarse marcos interpretativos divergentes, lo cual genera una tendencia fuerte al dinamismo y son esenciales para generar crisis que impulsan ajustes y reconfiguraciones."
+                    },
+                    {
+                        numero: 99,
+                        enunciado: "Los procedimientos abductivo-deductivo-inductivos:",
+                        opciones: {
+                            A: "Son el método operativo de intervención profesional para el Trabajo Social basado en TCCR.",
+                            B: "Pertenecen a la construcción de la TCCR, no a su metodología operativa de intervención.",
+                            C: "La abducción se utiliza para generar hipótesis sobre el cliente, la deducción para diseñar un plan de intervención y la inducción para evaluar los resultados empíricos.",
+                            D: "La metodología de teorización es irrelevante para la práctica, ya que la TCCR se enfoca únicamente en el análisis conceptual del Cognosistema."
+                        },
+                        correcta: "B",
+                        justificacion: "Los procedimientos abductivo-deductivo-inductivos pertenecen a la construcción de la TCCR, no a su metodología operativa de intervención: fueron usados para crear el marco teórico, mientras que la práctica propone una metodología ecosistémico-narrativa; confundir ambos planos es un error meta-teórico y contraviene una “regla de oro” de la TCCR."
+                    },
+                    {
+                        numero: 100,
+                        enunciado: "País X adopta “transición justa” (macro) que reordena empresas/comunidades (meso) y se impulsa el meme “Energía comunitaria es soberanía” para disputar “crecimiento ilimitado”. Baja su legitimidad. ¿Cuál combinación correcta para: (i) fase del Cognosistema, (ii) etapa del ciclo vital de esa narrativa, (iii) dirección de retroalimentación, (iv) tipología del meme?",
+                        opciones: {
+                            A: "Delta; Madurez; Ascendente; Consolidación",
+                            B: "Alfa; Declive/transformación; Descendente (macro→meso/micro); Fricción",
+                            C: "Beta; Surgimiento; Horizontal; Transición",
+                            D: "Delta; Renovación; Ascendente; Refuerzo"
+                        },
+                        correcta: "B",
+                        justificacion: "Crisis sistémica (Alfa) + cambio impuesto desde macro (descendente) + pérdida de legitimidad (declive) + meme que confronta un marco dominante ('crecimiento ilimitado') (Fricción). La Transición Justa genera una crisis que impulsa el cambio."
+                    }
+                ]
+            }
+        ];
+
+        // --- 2. ESTADO GLOBAL Y PERSISTENCIA ---
+        const LOCAL_STORAGE_KEY = 'tccr_trivia_progress_';
+        
+        let gameState = {
+            playerName: '',
+            currentLevel: 1,
+            currentQuestionIndex: 0,
+            totalScore: 0,
+            levels: {} // { "1": { correct: 0, answers: [null, null, ...] } }
+        };
+
+        let currentQuestion;
+        let selectedAnswer = null;
+        let isAnswered = false;
+
+        /**
+         * Inicializa la estructura del estado de niveles.
+         * @param {number} startLevel - El nivel desde donde empezar (usado para reiniciar un nivel o todo).
+         */
+        function initializeLevelsState(startLevel = 1) {
+            for (let i = startLevel; i <= QUESTIONS.length; i++) {
+                // Solo reinicializar si estamos reiniciando todo o si es el nivel actual
+                if (i >= gameState.currentLevel || startLevel === 1) {
+                    gameState.levels[i] = {
+                        correct: 0,
+                        // Inicializa el array de respuestas a null (10 preguntas)
+                        answers: Array(QUESTIONS[i - 1].items.length).fill(null)
+                    };
+                }
+            }
+        }
+
+        /** Carga el estado del juego desde localStorage por nombre de jugador. */
+        function loadState(playerName) {
+            try {
+                const storedState = localStorage.getItem(LOCAL_STORAGE_KEY + playerName);
+                if (storedState) {
+                    const loadedState = JSON.parse(storedState);
+                    // Validar la estructura mínima
+                    if (loadedState.playerName && loadedState.currentLevel) {
+                        gameState = loadedState;
+                        return true;
+                    }
+                }
+            } catch (e) {
+                console.error("Error al cargar el estado:", e);
+            }
+            return false;
+        }
+
+        /** Guarda el estado del juego en localStorage. */
+        function saveState() {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY + gameState.playerName, JSON.stringify(gameState));
+            } catch (e) {
+                console.error("Error al guardar el estado:", e);
+            }
+        }
+
+        // --- 3. MANEJO DE VISTAS Y UI ---
+
+        /** Muestra la pantalla solicitada y oculta las demás. */
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(id).classList.add('active');
+        }
+
+        /** Actualiza el texto de progreso y la barra general. */
+        function updateProgressUI() {
+            const totalQuestions = QUESTIONS.reduce((acc, level) => acc + level.items.length, 0);
+            const overallScore = Object.values(gameState.levels).reduce((acc, level) => acc + (level.correct || 0), 0);
+            
+            let completedQuestions = 0;
+            for(let i = 1; i < gameState.currentLevel; i++) {
+                completedQuestions += QUESTIONS[i-1].items.length;
+            }
+            completedQuestions += gameState.currentQuestionIndex;
+
+            // Progreso total de 100
+            const overallProgressPercent = overallScore;
+
+            // Texto
+            document.getElementById('player-greeting').textContent = `¡Hola, ${gameState.playerName}!`;
+            document.getElementById('progress-text').textContent = 
+                `Nivel ${gameState.currentLevel} de ${QUESTIONS.length} · Pregunta ${gameState.currentQuestionIndex + 1} de 10 · Puntaje: ${overallScore}`;
+            
+            // Barra de progreso (basada en el score total)
+            document.getElementById('overall-progress-fill').style.width = `${overallProgressPercent}%`;
+
+            // Actualizar total score en el estado
+            gameState.totalScore = overallScore;
+        }
+
+
+        // --- 4. FUNCIONES DE FLUJO DE JUEGO ---
+
+        /** * Maneja el inicio o continuación del juego después del login.
+         */
+        function handleLogin() {
+            const input = document.getElementById('player-name-input');
+            const playerName = input.value.trim();
+
+            if (!playerName) {
+                input.focus();
+                return; // No avanzar sin nombre
+            }
+
+            // Sanitizar el nombre para el key de localStorage
+            const keyName = playerName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+            // Cargar progreso para ese nombre
+            if (loadState(keyName)) {
+                // Si hay progreso, mostrar la opción de continuar/reiniciar en la misma pantalla
+                document.getElementById('continue-game').style.display = 'block';
+                document.getElementById('continue-game').textContent = `Continuar (Nivel ${gameState.currentLevel} · Pts: ${gameState.totalScore})`;
+            } else {
+                // Si no hay progreso, asegurar que el botón de continuar esté oculto
+                document.getElementById('continue-game').style.display = 'none';
+            }
+            
+            // Actualizar el nombre en el estado para el juego
+            gameState.playerName = keyName;
+        }
+
+        /** Inicia o continúa el juego desde el estado actual. */
+        function continueGame(startNew = false) {
+            if (startNew) {
+                // Reinicio total
+                gameState.currentLevel = 1;
+                gameState.currentQuestionIndex = 0;
+                gameState.totalScore = 0;
+                gameState.levels = {};
+                initializeLevelsState();
+                saveState();
+            } else if (Object.keys(gameState.levels).length === 0) {
+                // Si es la primera vez que inicia con este nombre y no cargó data
+                initializeLevelsState();
+            }
+
+            // Si ha completado la trivia, ir a la pantalla final
+            if (gameState.currentLevel > QUESTIONS.length) {
+                renderFinalScreen();
+                return;
+            }
+
+            renderQuestion();
+            showScreen('quiz-screen');
+        }
+        
+        /** Reinicia SOLAMENTE el nivel actual. */
+        function retryLevel() {
+            // Recalcular puntaje total restando el puntaje que tenía al inicio de este nivel
+            const prevLevelsScore = QUESTIONS.slice(0, gameState.currentLevel - 1).reduce((acc, level) => acc + level.items.length, 0);
+            
+            gameState.totalScore = 0; // Se recalcula en updateProgressUI, pero lo ponemos a 0 para que sume solo los niveles completados 
+            gameState.currentQuestionIndex = 0;
+            
+            // Reiniciar el estado del nivel actual
+            gameState.levels[gameState.currentLevel] = {
+                correct: 0,
+                answers: Array(QUESTIONS[gameState.currentLevel - 1].items.length).fill(null)
+            };
+            
+            // Reajustar el score base
+            for(let i = 1; i < gameState.currentLevel; i++) {
+                gameState.levels[i].correct = QUESTIONS[i-1].items.length; // Asumir que los anteriores estaban 10/10 para avanzar
+            }
+
+            saveState();
+            continueGame(false); // Continuar desde el nivel actual
+        }
+
+        /** Renderiza la pregunta actual. */
+        function renderQuestion() {
+            const levelData = QUESTIONS[gameState.currentLevel - 1];
+            currentQuestion = levelData.items[gameState.currentQuestionIndex];
+
+            // 1. Resetear el estado de la pregunta
+            isAnswered = false;
+            selectedAnswer = null;
+            document.getElementById('submit-button').style.display = 'block';
+            document.getElementById('next-button').style.display = 'none';
+            document.getElementById('feedback-area').style.display = 'none';
+            document.getElementById('feedback-area').classList.remove('feedback-correct', 'feedback-incorrect');
+            document.getElementById('feedback-area').innerHTML = ''; // Limpiar contenido de feedback
+            
+            // 2. Actualizar UI de progreso
+            updateProgressUI();
+            
+            // 3. Renderizar la pregunta y opciones
+            const qIndex = gameState.currentQuestionIndex;
+            document.getElementById('question-legend').innerHTML = `${levelData.title} · Pregunta n°${currentQuestion.numero}: ${currentQuestion.enunciado}`;
+            
+            const alternativesContainer = document.getElementById('alternatives-container');
+            alternativesContainer.innerHTML = '';
+            
+            const options = currentQuestion.opciones;
+            const optionsKeys = Object.keys(options);
+            const savedAnswer = gameState.levels[gameState.currentLevel].answers[qIndex];
+
+            optionsKeys.forEach(key => {
+                const id = `option-${key}`;
+                const checked = savedAnswer === key;
+                const isDisabled = savedAnswer !== null; // Deshabilitar si ya se respondió (aunque el flujo normal no debería mostrarla respondida)
+
+                const label = document.createElement('label');
+                label.setAttribute('for', id);
+                label.classList.add('alternativa');
+                
+                label.innerHTML = `
+                    <input 
+                        type="radio" 
+                        id="${id}" 
+                        name="answer" 
+                        value="${key}" 
+                        ${checked ? 'checked' : ''} 
+                        ${isDisabled ? 'disabled' : ''}
+                        aria-label="Alternativa ${key}: ${options[key]}"
+                    >
+                    <span class="custom-radio"></span>
+                    <span class="label-text">${key}) ${options[key]}</span>
+                `;
+
+                alternativesContainer.appendChild(label);
+
+                // Asignar listener para el cambio de selección
+                label.querySelector('input').addEventListener('change', (e) => {
+                    if (!isAnswered) {
+                        selectedAnswer = e.target.value;
+                    }
+                });
+            });
+
+            // Si ya está respondida (esto ocurre si se cargó el estado en una pregunta ya resuelta del nivel actual)
+            if (savedAnswer !== null) {
+                isAnswered = true;
+                showFeedback(savedAnswer, currentQuestion);
+                document.getElementById('submit-button').style.display = 'none';
+                document.getElementById('next-button').style.display = 'block';
+            }
+        }
+
+        /** Muestra el feedback de respuesta. */
+        function showFeedback(answer, question) {
+            const isCorrect = answer === question.correcta;
+            const feedbackArea = document.getElementById('feedback-area');
+            
+            feedbackArea.innerHTML = `
+                <h3>${isCorrect ? '¡Correcto!' : '¡Incorrecto!'}</h3>
+                <p><strong>Respuesta Correcta:</strong> ${question.correcta}) ${question.opciones[question.correcta]}</p>
+                <p><strong>Justificación:</strong> ${question.justificacion}</p>
+            `;
+            feedbackArea.classList.add(isCorrect ? 'feedback-correct' : 'feedback-incorrect');
+            feedbackArea.style.display = 'block';
+            
+            // Resaltar la opción seleccionada (solo si se respondió)
+            const selectedOption = document.querySelector(`input[value="${answer}"]`);
+            if (selectedOption) {
+                selectedOption.parentElement.style.border = `1px solid ${isCorrect ? 'var(--color-correct)' : 'var(--color-incorrect)'}`;
+            }
+
+            // Deshabilitar todas las opciones
+            document.querySelectorAll('input[name="answer"]').forEach(input => {
+                input.disabled = true;
+            });
+            
+            // Resaltar la correcta si es incorrecto
+            if (!isCorrect) {
+                const correctOption = document.querySelector(`input[value="${question.correcta}"]`);
+                if (correctOption) {
+                    correctOption.parentElement.style.border = `1px solid var(--color-correct)`;
+                }
+            }
+        }
+        
+        /** Maneja la lógica de respuesta al formulario. */
+        function submitAnswer(e) {
+            e.preventDefault();
+            
+            if (isAnswered) return;
+
+            if (!selectedAnswer) {
+                // Simular un mensaje de alerta en la UI (No usar alert())
+                const feedbackArea = document.getElementById('feedback-area');
+                feedbackArea.innerHTML = `<h3>⚠️ Error: Debes seleccionar una alternativa para responder.</h3>`;
+                feedbackArea.classList.add('feedback-incorrect');
+                feedbackArea.style.display = 'block';
+                return;
+            }
+
+            isAnswered = true;
+            document.getElementById('submit-button').style.display = 'none';
+            document.getElementById('next-button').style.display = 'block';
+
+            const questionIndex = gameState.currentQuestionIndex;
+            const levelState = gameState.levels[gameState.currentLevel];
+            const isCorrect = selectedAnswer === currentQuestion.correcta;
+
+            // 1. Mostrar Feedback y Justificación
+            showFeedback(selectedAnswer, currentQuestion);
+
+            // 2. Actualizar Estado
+            levelState.answers[questionIndex] = selectedAnswer;
+            
+            if (isCorrect) {
+                levelState.correct += 1;
+            }
+
+            // 3. Persistir y actualizar UI
+            updateProgressUI();
+            saveState();
+        }
+
+        /** Avanza a la siguiente acción: siguiente pregunta, resumen de nivel o pantalla final. */
+        function nextAction() {
+            const levelData = QUESTIONS[gameState.currentLevel - 1];
+            
+            if (gameState.currentQuestionIndex < levelData.items.length - 1) {
+                // 1. Siguiente pregunta en el mismo nivel
+                gameState.currentQuestionIndex += 1;
+                saveState();
+                renderQuestion();
+            } else {
+                // 2. Fin del nivel
+                renderLevelSummary();
+                showScreen('summary-screen');
+            }
+        }
+
+        /** Renderiza la pantalla de resumen de nivel. */
+        function renderLevelSummary() {
+            const levelState = gameState.levels[gameState.currentLevel];
+            const levelCorrect = levelState.correct;
+            const isLevelPassed = levelCorrect === QUESTIONS[gameState.currentLevel - 1].items.length;
+            const totalScore = gameState.totalScore;
+            
+            document.getElementById('level-correct').textContent = `${levelCorrect}/10`;
+            document.getElementById('summary-total-score').textContent = totalScore;
+            
+            const summaryTitle = document.getElementById('summary-title');
+            const summaryActions = document.getElementById('summary-actions');
+            summaryActions.innerHTML = '';
+            
+            if (isLevelPassed) {
+                summaryTitle.textContent = `¡Nivel ${gameState.currentLevel} Completado!`;
+                document.getElementById('level-result').textContent = "¡Felicidades! Has respondido 10 de 10 correctamente.";
+
+                gameState.currentLevel += 1;
+                gameState.currentQuestionIndex = 0;
+                saveState();
+
+                if (gameState.currentLevel > QUESTIONS.length) {
+                    // Fin de la Trivia
+                    summaryActions.innerHTML = `<button onclick="renderFinalScreen()" aria-label="Ver puntaje final y felicitaciones">Ver Resultado Final</button>`;
+                } else {
+                    // Continuar al siguiente nivel
+                    summaryActions.innerHTML = `<button onclick="continueGame(false)" aria-label="Continuar al siguiente nivel">Continuar al Nivel ${gameState.currentLevel} →</button>`;
+                }
+            } else {
+                summaryTitle.textContent = `Nivel ${gameState.currentLevel} Incompleto`;
+                document.getElementById('level-result').textContent = `Necesitas 10/10 para avanzar. Obtuviste ${levelCorrect}/10.`;
+                
+                // Botones de reintento
+                summaryActions.innerHTML = `
+                    <button onclick="retryLevel()" aria-label="Intentar el nivel nuevamente" style="background-color: var(--color-secondary);">Intentar el Nivel otra vez</button>
+                    <button onclick="continueGame(true)" class="restart-button" aria-label="Reiniciar toda la trivia desde el nivel 1">Comenzar la Trivia nuevamente</button>
+                `;
+            }
+        }
+
+        /** Renderiza la pantalla final de la Trivia. */
+        function renderFinalScreen() {
+            const finalScore = gameState.totalScore;
+            
+            document.getElementById('final-player-name').textContent = gameState.playerName;
+            document.getElementById('final-score').textContent = finalScore;
+            
+            showScreen('final-screen');
+            // Limpiar estado guardado si se terminó exitosamente
+            localStorage.removeItem(LOCAL_STORAGE_KEY + gameState.playerName);
+        }
+
+        // --- 5. INICIALIZACIÓN Y LISTENERS ---
+
+        /** Inicialización de la aplicación al cargar la página. */
+        function init() {
+            const input = document.getElementById('player-name-input');
+            const storedPlayerName = localStorage.getItem('lastPlayerName');
+
+            if (storedPlayerName) {
+                input.value = storedPlayerName;
+                handleLogin(); // Cargar automáticamente el progreso si hay nombre
+            } else {
+                // Mostrar el botón de Iniciar Trivia por defecto
+                document.getElementById('continue-game').style.display = 'none';
+            }
+
+            // Listener para el input de nombre (para mostrar/ocultar el botón de Continuar)
+            input.addEventListener('input', handleLogin);
+            
+            // Listener para Iniciar Nueva Trivia
+            document.getElementById('start-new-game').addEventListener('click', () => {
+                if (input.value.trim()) {
+                    localStorage.setItem('lastPlayerName', input.value.trim());
+                    continueGame(true); // Reinicio total
+                } else {
+                    input.focus();
+                }
+            });
+
+            // Listener para Continuar Trivia
+            document.getElementById('continue-game').addEventListener('click', () => {
+                if (input.value.trim()) {
+                    localStorage.setItem('lastPlayerName', input.value.trim());
+                    continueGame(false); // Continuar desde el estado cargado
+                }
+            });
+            
+            // Listener para el formulario de la pregunta
+            document.getElementById('question-form').addEventListener('submit', submitAnswer);
+            
+            // Listener para el botón Siguiente
+            document.getElementById('next-button').addEventListener('click', nextAction);
+
+            showScreen('login-screen'); // Siempre empezar en la pantalla de login
+        }
+
+        // Iniciar la aplicación
+        window.onload = init;
+
+    </script>
 </body>
 </html>
