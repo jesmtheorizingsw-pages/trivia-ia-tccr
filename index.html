@@ -3,520 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trivia Cognosistémica TCCR</title>
-    <!-- Carga de Tailwind CSS -->
+    <title>Trivia de la Teoría Cognosistémica (TCCR)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Configuración de Tailwind y Fuente Inter -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        'tccr-primary': '#1D4ED8', // Azul fuerte
-                        'tccr-secondary': '#3B82F6', // Azul claro
-                        'tccr-accent': '#DC2626', // Rojo
-                        'tccr-bg': '#F8FAFC', // Gris muy claro
-                        'tccr-success': '#059669', // Verde oscuro
-                        'tccr-warning': '#F59E0B', // Amarillo
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #F8FAFC;
-        }
-        /* Estilo para el feedback de respuesta */
-        .feedback {
-            transition: all 0.3s ease-in-out;
-        }
-        .correct {
-            background-color: #D1FAE5; /* Verde pálido */
-            border-left: 5px solid #059669; /* Verde oscuro */
-        }
-        .incorrect {
-            background-color: #FEE2E2; /* Rojo pálido */
-            border-left: 5px solid #DC2626; /* Rojo oscuro */
-        }
-        .option-button {
-            transition: all 0.15s ease-in-out;
-            text-align: left; /* Asegura que el texto esté alineado a la izquierda */
-        }
-        .option-button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-        }
-        .loading-icon {
-            border: 4px solid rgba(0, 0, 0, .1);
-            border-top: 4px solid #1D4ED8;
-            border-radius: 50%;
-            width: 1.5rem;
-            height: 1.5rem;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body class="min-h-screen flex items-center justify-center p-4 sm:p-8">
-    <!-- Contenedor Principal de la Trivia (Preguntas) -->
-    <div id="quiz-container" class="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 sm:p-10 border-t-8 border-t-tccr-primary">
-        <header class="mb-6 text-center">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-tccr-primary mb-2">Trivia Cognosistémica TCCR</h1>
-            <p class="text-gray-600 text-lg">Herramienta de Estudio para Trabajo Social y Ciencias Sociales (Simunovic, 2025)</p>
-            <hr class="mt-4 border-tccr-primary/50">
-        </header>
-
-        <!-- Sección de Puntaje y Progreso -->
-        <div class="flex justify-between items-center text-tccr-primary font-semibold mb-6">
-            <span id="score-display" class="text-xl">Puntaje: 0</span>
-            <span id="progress-display" class="text-xl">Pregunta: 1/10</span>
-        </div>
-
-        <!-- Sección de la Pregunta -->
-        <div id="question-card" class="bg-tccr-bg p-5 rounded-lg mb-6 shadow-inner min-h-[120px] flex items-center">
-            <p id="question-text" class="text-xl font-medium text-gray-800 loading-animation">Cargando...</p>
-        </div>
-
-        <!-- Opciones de Respuesta -->
-        <div id="options-container" class="space-y-4">
-            <!-- Los botones se insertarán aquí dinámicamente -->
-        </div>
-
-        <!-- Feedback y Botón Siguiente -->
-        <div id="feedback-section" class="mt-6">
-            <div id="feedback-message" class="feedback p-4 rounded-lg text-lg font-medium hidden" role="alert">
-                <!-- Mensaje de feedback aquí -->
-            </div>
-            <button id="next-button" class="mt-4 w-full bg-tccr-primary hover:bg-tccr-secondary text-white font-bold py-3 rounded-lg shadow-lg hover:shadow-xl transition duration-200 disabled:opacity-50" disabled>
-                Siguiente Pregunta
-            </button>
-        </div>
-    </div>
-
-    <!-- Pantalla de Resultados Finales -->
-    <div id="results-screen" class="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-8 sm:p-12 hidden border-t-8 border-t-tccr-accent">
-        <div class="text-center">
-            <h2 class="text-3xl sm:text-4xl font-extrabold text-tccr-accent mb-4">¡Intento de Trivia Finalizado!</h2>
-            <p class="text-gray-600 text-xl mb-4">Puntaje Obtenido:</p>
-            <p id="final-score" class="text-6xl font-extrabold mb-6 text-tccr-primary">0/10</p>
-            
-            <div id="retro-card" class="p-5 rounded-lg mb-8 text-left border-2 border-dashed">
-                <h3 class="text-xl font-bold mb-2">Retroalimentación:</h3>
-                <p id="performance-message" class="text-gray-700"></p>
-                <p id="reinforce-message" class="mt-2 text-sm text-gray-500 italic">Temas clave a reforzar: <span id="reinforce-topics"></span></p>
-            </div>
-
-            <!-- Botón para Renovar Preguntas (API) -->
-            <button id="renew-questions-button" class="mt-4 w-full flex items-center justify-center space-x-2 bg-tccr-success hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg transition duration-200">
-                <!-- Icono de recarga (SVG) -->
-                <svg id="renew-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181-3.183a8.25 8.25 0 0113.803-3.88M4.064 19.644l-3.181-3.183a8.25 8.25 0 0113.803 3.88" />
-                </svg>
-                <span id="renew-text">Realizar otra ronda de preguntas (Renovar Set)</span>
-                <div id="loading-spinner" class="loading-icon hidden"></div>
-            </button>
-             <button id="static-restart-button" class="mt-3 w-full border border-gray-400 text-gray-700 hover:bg-gray-100 font-bold py-3 rounded-lg transition duration-200">
-                Reiniciar con el mismo set de preguntas
-            </button>
-        </div>
-    </div>
-
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script type="module">
-        // Importación de Firebase para futuras implementaciones
-        // import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // --- BASE DE PREGUNTAS ESTRUCTURADAS DE LA TCCR ---
-        // Se han eliminado los caracteres ** de las preguntas y feedback para cumplir con la solicitud.
-        const TCCR_QUESTIONS = [
-            {
-                question: "¿Cuál es el concepto central que la TCCR define como el 'suprasistema narrativo ecosistémico' que integra y conecta todos los sistemas narrativos (micro, meso, exo, macro y cronosistema)?",
-                options: ["Ontología Sistémico-Relacional", "Meme Cognosistémico", "Cognosistema", "Propósito Narrativo"],
-                answer: "Cognosistema",
-                topic: "Cognosistema / Niveles Ecosistémicos",
-                feedback: "Correcto. El Cognosistema es la megaestructura narrativa que da coherencia a la realidad psicosocial a través de múltiples niveles ecosistémicos."
-            },
-            {
-                question: "Según la Tripleta TCCR, la dimensión que postula que la ontología del ser humano es el vínculo ('el ser humano es vínculo') corresponde a la:",
-                options: ["Epistemología Cognosistémica", "Metodología Ecosistémica-Narrativa", "Ontología Sistémico-Relacional", "Dinámica de Capas"],
-                answer: "Ontología Sistémico-Relacional",
-                topic: "Tripleta TCCR / Ontología",
-                feedback: "Correcto. La Ontología Sistémico-Relacional define al ser humano por su esencia vincular y relacional."
-            },
-            {
-                question: "¿Cuál de las siguientes fases en la dinámica de cambio narrativo de la TCCR representa la etapa de 'reorganización/transformación' del sistema narrativo?",
-                options: ["Fase Alfa", "Fase Beta", "Fase Omega", "Fase Delta"],
-                answer: "Fase Delta",
-                topic: "Fases de Cambio Narrativo",
-                feedback: "Correcto. La Fase Delta es la etapa post-crisis (Alfa) donde ocurre la reorganización y la transformación narrativa efectiva."
-            },
-            {
-                question: "La TCCR establece una estructura básica de un sistema narrativo con ocho elementos. ¿Cuál de estos es una unidad de significado estratégico, intencionalmente creada, que vehiculiza y propaga narrativas a través de niveles ecosistémicos?",
-                options: ["Función Narrativa", "Actitud Epistémica", "Contenido Proposicional", "Meme Cognosistémico"],
-                answer: "Meme Cognosistémico",
-                topic: "Memes Cognosistémicos / Estructura Narrativa",
-                feedback: "Correcto. El Meme Cognosistémico es la unidad de diseño de incidencia para la transformación narrativa."
-            },
-            {
-                question: "La Epistemología Cognosistémica de la TCCR se define por la convergencia de dos enfoques principales para comprender narrativas interconectadas. ¿Cuáles son?",
-                options: ["Fenomenológico y Marxista", "Cognitivo y Sistémico", "Estructural y Positivista", "Funcionalista y Decolonial"],
-                answer: "Cognitivo y Sistémico",
-                topic: "Tripleta TCCR / Epistemología",
-                feedback: "Correcto. Cognitivo + Sistémico permite comprender cómo la mente construye y cómo el contexto relacional sostiene las narrativas (Epistemología Cognosistémica)."
-            },
-            {
-                question: "En la Jerarquía de Narrativas, ¿qué tipo de narrativa se caracteriza por un alto nivel de poder narrativo y es la que define la versión de la realidad para un colectivo o Cognosistema?",
-                options: ["Narrativa Resignada", "Narrativa Desafiante", "Narrativa Adaptativa", "Narrativa Hegemónica"],
-                answer: "Narrativa Hegemónica",
-                topic: "Jerarquía de Narrativas / Poder Narrativo",
-                feedback: "Correcto. Las narrativas Hegemónicas son las dominantes y definitorias, en la cúspide de la jerarquía."
-            },
-            {
-                question: "La Metodología de Intervención de la TCCR es Ecosistémica-Narrativa. ¿Cuál es su doble foco de acción principal?",
-                options: ["Individualización de problemas y reeducación", "Transformación relacional y justicia social", "Diagnóstico psiquiátrico y mediación legal", "Recolección de datos y análisis estadístico"],
-                answer: "Transformación relacional y justicia social",
-                topic: "Tripleta TCCR / Metodología",
-                feedback: "Correcto. La TCCR busca la transformación relacional (vínculo) y la justicia (macro) de forma articulada."
-            },
-            {
-                question: "¿Cuál de los siguientes NO es uno de los 8 elementos de la Estructura Básica de un Sistema Narrativo?",
-                options: ["Evaluación Cognitiva", "Propósito Narrativo", "Retroalimentación Positiva", "Actitud Epistémica"],
-                answer: "Retroalimentación Positiva",
-                topic: "8 Elementos Narrativos",
-                feedback: "Correcto. La Retroalimentación Positiva (o negativa) es parte de la Dinámica y Flujos, no un elemento estructural básico (los 8 elementos son: Experiencia, Percepciones/Emociones, Contexto, Contenido Proposicional, Evaluación Cognitiva, Actitud Epistémica, Propósito Narrativo y Función Narrativa)."
-            },
-            {
-                question: "El principio de la TCCR que establece que 'el ser humano es vínculo' y que los fenómenos sociales son un todo interrelacionado corresponde a:",
-                options: ["Epistemología Cognosistémica", "Autopoiesis Narrativa", "Ontología Sistémico-Relacional", "Fase Beta"],
-                answer: "Ontología Sistémico-Relacional",
-                topic: "Tripleta TCCR / Ontología",
-                feedback: "Correcto. La Ontología Sistémico-Relacional es el fundamento de que la realidad humana es relacional."
-            },
-            {
-                question: "La Fase Alfa en la dinámica de cambio narrativo de la TCCR se caracteriza por:",
-                options: ["Estabilidad y homeostasis", "Crisis y desestructuración narrativa", "Reorganización y transformación", "Consolidación de la narrativa hegemónica"],
-                answer: "Crisis y desestructuración narrativa",
-                topic: "Fases de Cambio Narrativo",
-                feedback: "Correcto. La Fase Alfa es el momento de crisis, donde el sistema narrativo se desestructura, obligando al paso a la Fase Delta (transformación) o al retorno a Fase Beta (estabilidad)."
-            }
+        // Configuración de Firebase - Variables Globales Mandatorias
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Default config if not provided */ };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        setLogLevel('Debug');
+        
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        const STATE = {
+            questions: [],
+            currentQuestionIndex: 0,
+            score: 0,
+            showResult: false,
+            answered: false,
+            feedback: '',
+            incorrectTopics: {},
+            loading: false,
+            statusMessage: 'Cargando aplicación...',
+            dynamicQuestionsEnabled: true,
+            triviaId: 'TCCR-Quiz-1' // ID para el documento de guardado en Firestore
+        };
+
+        const staticQuestions = [
+            { question: "¿Cuál de los siguientes conceptos es la unidad analítica máxima de significación psicosocial en la TCCR?", options: ["Sistema Narrativo Cognosistémico (SNC)", "Meme Cognosistémico", "Cognosistema", "Autopoiesis Narrativa"], answer: "Cognosistema", topic: "Cognosistema" },
+            { question: "Según la TCCR, ¿Cuál de las siguientes fases describe la desestabilización discursiva causada por fricciones o crisis?", options: ["Fase Beta", "Fase Delta", "Fase Alfa", "Fase Resiliencia"], answer: "Fase Alfa", topic: "Dinámica de Cambio (Alfa, Beta, Delta)" },
+            { question: "En la estructura básica de un SNC, ¿qué elemento se define como las 'afirmaciones nucleares del relato'?", options: ["Propósito Narrativo", "Evaluación Cognitiva", "Actitud Epistémica", "Contenido Proposicional (Núcleo Narrativo)"], answer: "Contenido Proposicional (Núcleo Narrativo)", topic: "Sistemas Narrativos (8 Elementos)" },
+            { question: "¿Qué tipo de Meme Cognosistémico tiene como función introducir tensiones y confrontar marcos interpretativos dominantes?", options: ["Meme de Transición", "Meme de Fricción", "Meme de Consolidación", "Meme Hegemónico"], answer: "Meme de Fricción", topic: "Memes Cognosistémicos" },
+            { question: "¿Qué movilidad narrativa describe el incremento de posición en la jerarquía de un relato?", options: ["Horizontal", "Descendente", "Estática", "Ascendente"], answer: "Ascendente", topic: "Movilidad Narrativa" },
+            { question: "La TCCR propone una ontología sistémico-relacional que concibe al ser humano como:", options: ["Unidad cognitiva aislada", "Ser social y relacional", "Entidad puramente cultural", "Resultado de un discurso hegemónico"], answer: "Ser social y relacional", topic: "Tripleta TCCR" },
+            { question: "¿Qué componente del SNC contrasta datos, inferencias y encaje sistémico/ético del relato?", options: ["Contenido Proposicional", "Evaluación Cognitiva (Cuerpo Narrativo)", "Experiencia", "Percepciones y Emociones"], answer: "Evaluación Cognitiva (Cuerpo Narrativo)", topic: "Sistemas Narrativos (8 Elementos)" },
+            { question: "Un Cognosistema se adscribe conceptualmente a:", options: ["Un individuo y su mapa mental", "Una familia nuclear", "Una sociedad en específico", "Un discurso hegemónico único"], answer: "Una sociedad en específico", topic: "Cognosistema" },
+            { question: "La etapa de 'Madurez' del Ciclo Vital Narrativo se caracteriza por:", options: ["Fase de experimentación abierta", "Estabilidad y resistencia al cambio", "Reorganización tras una crisis", "Introducción de fricciones"], answer: "Estabilidad y resistencia al cambio", topic: "Ciclo Vital Narrativo" },
+            { question: "¿Qué tipo de Meme Cognosistémico actúa como vector de cambio gradual y adaptación progresiva?", options: ["Meme de Consolidación", "Meme de Fricción", "Meme de Transición", "Meme Desafiante"], answer: "Meme de Transición", topic: "Memes Cognosistémicos" }
         ];
 
-        // --- VARIABLES DE ESTADO ---
-        let originalQuestions = [...TCCR_QUESTIONS]; // Copia de seguridad del set inicial
-        let currentQuestions = []; // Conjunto de preguntas para la sesión actual
-        let answeredQuestions = []; // Array para llevar registro del rendimiento por tema
-        let currentQuestionIndex = 0;
-        let score = 0;
-        const totalQuestions = 10;
-        // 
-        const apiKey = "AIzaSyDcSrf5qmddi3G3YdqmaQozqCzf8won3iA"; 
+        // --- Nuevas Reglas de Oro (Mantenidas y Reforzadas) ---
+        const systemPrompt = `Eres un trabajador social experto y riguroso en la "Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana" (TCCR) de Jalin Simunovic (2025). Tu tarea es generar preguntas académicamente sólidas, bien estructuradas y con opciones de respuesta válidas que evalúen el conocimiento profundo de la TCCR, siguiendo estrictamente las Reglas de Oro Conceptuales (RDC) a continuación.
 
-        // --- REFERENCIAS DOM ---
-        const quizContainer = document.getElementById('quiz-container');
-        const questionText = document.getElementById('question-text');
-        const optionsContainer = document.getElementById('options-container');
-        const scoreDisplay = document.getElementById('score-display');
-        const progressDisplay = document.getElementById('progress-display');
-        const nextButton = document.getElementById('next-button');
-        const feedbackMessage = document.getElementById('feedback-message');
-        const resultsScreen = document.getElementById('results-screen');
-        const renewQuestionsButton = document.getElementById('renew-questions-button');
-        const staticRestartButton = document.getElementById('static-restart-button');
-        const finalScoreDisplay = document.getElementById('final-score');
-        const performanceMessage = document.getElementById('performance-message');
-        const reinforceTopics = document.getElementById('reinforce-topics');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const renewText = document.getElementById('renew-text');
-        const renewIcon = document.getElementById('renew-icon');
+**REGLAS DE ORO CONCEPTUALES (RDC) para la generación de contenido TCCR:**
 
+1.  **Anclaje Paradigmático (RDC 0):** Toda pregunta o explicación debe preservar la mirada cognosistémica: la realidad psicosocial es una **construcción narrativa relacional** dentro de **Cognosistemas** específicos, con **multinivelidad**, **jerarquías narrativas**, **circulación de sentido**, **poder**, **temporalidad** y **validación ética**.
 
-        // --- FUNCIONES DE UTILIDAD ---
+2.  **Cognosistema (RDC 1):** Un Cognosistema **SIEMPRE** se ancla a **una sociedad específica** (y a un periodo, si es relevante). **NUNCA** se asigna a un individuo, familia u organización de forma aislada. Debe incluir **capas** (micro/meso/exo/macro y temporalidades), **interdependencias**, **jerarquías narrativas** y **dinámicas de cambio**. No confundir con 'cultura' o 'discurso hegemónico'.
 
-        /**
-         * Selecciona un subconjunto aleatorio de preguntas, asegurando 10 preguntas.
-         */
-        const selectRandomQuestions = (arr, num) => {
-            if (arr.length >= num) {
-                const shuffled = [...arr].sort(() => 0.5 - Math.random());
-                return shuffled.slice(0, num);
-            }
-            // Si el pool es menor que 10, repite algunas preguntas aleatoriamente
-            const selected = [];
-            for (let i = 0; i < num; i++) {
-                selected.push(arr[Math.floor(Math.random() * arr.length)]);
-            }
-            return selected;
-        };
+3.  **Sistema Narrativo Cognosistémico (SNC) (RDC 2):** Un SNC es una **unidad** dentro del Cognosistema y se define por sus **8 elementos diferenciados**: Experiencia; Percepciones/Emociones; Contexto; **Núcleo** (contenido proposicional); **Cuerpo** (evaluación cognitiva); Actitud epistémica; Propósito; Función. Las preguntas deben distinguir entre **Núcleo** y **Cuerpo**, y **Propósito** y **Función**.
+
+4.  **Dinámica (Ciclo, Fases, Movilidad):** Incluir preguntas sobre el **Ciclo Vital Narrativo** (5 etapas), las **Fases de Cambio Cognosistémico** (**Beta, Alfa, Delta**) y la **Movilidad Narrativa** (Ascendente, Descendente, Horizontal).
+
+5.  **Memes Cognosistémicos:** Las preguntas deben abordar los memes como **unidades de significado estratégicas e intencionales** y su **Tipología Funcional** (Consolidación, Fricción, Transición).
+
+6.  **Errores Prohibidos (Bandera Roja):** Evitar generar preguntas que cometan estos errores conceptuales:
+    * Asociar 'Cognosistema' a una persona/familia/empresa.
+    * Colapsar (confundir) **Núcleo** con **Cuerpo** o **Propósito** con **Función**.
+    * Omitir la **periodización** o tratar el Cognosistema como **estático**.
+
+Tu única respuesta debe ser el array JSON solicitado, sin comentarios, texto introductorio o epílogo.`;
+
+        // Modificación: Solicitamos 10 preguntas en lugar de 5
+        const userQuery = "Genera 10 preguntas de opción múltiple rigurosas sobre la Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana (TCCR) de Jalin Simunovic. Asegura que el set de 10 cubra de manera diversa y equitativa los siguientes constructos clave: 1) Cognosistema/Adscripción; 2) Fases de Cambio (Alfa, Beta, Delta); 3) Elementos del SNC (Núcleo vs Cuerpo, Propósito vs Función); 4) Jerarquía Narrativa/Movilidad; 5) Memes Cognosistémicos; 6) Tripleta TCCR (Ontología, Epistemología, Metodología); 7) Ciclo Vital Narrativo. La respuesta debe ser SOLO un array JSON que siga el siguiente esquema, incluyendo el campo 'topic' para cada pregunta:";
         
-        // Función para mostrar mensajes de error/éxito temporalmente
-        function displayCustomAlert(message) {
-            // Reutilizamos el feedback-message o creamos uno nuevo temporalmente
-            const tempAlert = document.createElement('div');
-            tempAlert.textContent = message;
-            tempAlert.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-xl text-white font-bold z-50 transition-all duration-300';
-            
-            if (message.includes('Éxito') || message.includes('cargado')) {
-                tempAlert.style.backgroundColor = '#059669'; // Verde
-            } else {
-                tempAlert.style.backgroundColor = '#DC2626'; // Rojo
-            }
-
-            document.body.appendChild(tempAlert);
-
-            setTimeout(() => {
-                tempAlert.style.opacity = '0';
-                tempAlert.style.transform = 'translate(-50%, -20px)';
-            }, 3000); // 3 segundos visible
-            
-            setTimeout(() => {
-                tempAlert.remove();
-            }, 3300); // Retirar después de la transición
-        }
-
-
-        // --- LÓGICA DEL QUIZ ---
-
-        /**
-         * Inicializa o reinicia el estado de la trivia.
-         */
-        function startQuiz() {
-            // Reiniciar estado
-            score = 0;
-            currentQuestionIndex = 0;
-            answeredQuestions = [];
-            
-            // Ocultar resultados y mostrar quiz
-            resultsScreen.classList.add('hidden');
-            quizContainer.classList.remove('hidden');
-
-            // Seleccionar y mezclar el pool de preguntas para esta ronda
-            currentQuestions = selectRandomQuestions(currentQuestions.length > 0 ? currentQuestions : originalQuestions, totalQuestions);
-            
-            // Mostrar la primera pregunta
-            displayQuestion();
-
-            // Actualizar la vista
-            scoreDisplay.textContent = `Puntaje: ${score}`;
-            feedbackMessage.classList.add('hidden');
-            nextButton.classList.add('hidden');
-        }
-
-        /**
-         * Muestra la pregunta actual y sus opciones.
-         */
-        function displayQuestion() {
-            if (currentQuestionIndex >= currentQuestions.length) {
-                showResults();
-                return;
-            }
-
-            const currentQ = currentQuestions[currentQuestionIndex];
-            
-            // Actualizar progreso
-            progressDisplay.textContent = `Pregunta: ${currentQuestionIndex + 1}/${currentQuestions.length}`;
-            questionText.textContent = currentQ.question;
-            
-            optionsContainer.innerHTML = ''; // Limpiar opciones anteriores
-            nextButton.classList.add('hidden');
-            feedbackMessage.classList.add('hidden');
-
-            // Mezclar opciones para dinamismo
-            const options = [...currentQ.options].sort(() => 0.5 - Math.random());
-
-            options.forEach(option => {
-                const button = document.createElement('button');
-                button.textContent = option;
-                button.className = 'option-button w-full text-left p-4 rounded-lg bg-gray-100 border border-gray-300 text-gray-800 hover:bg-tccr-secondary hover:text-white font-medium shadow-md transition-all duration-200';
-                button.setAttribute('data-answer', option);
-                button.addEventListener('click', () => handleAnswer(option, currentQ));
-                optionsContainer.appendChild(button);
-            });
-        }
-
-        /**
-         * Maneja la selección de una respuesta, proporciona feedback y actualiza el puntaje.
-         */
-        function handleAnswer(selectedOption, currentQ) {
-            // Deshabilitar todos los botones para prevenir múltiples clics
-            const optionButtons = optionsContainer.querySelectorAll('.option-button');
-            optionButtons.forEach(btn => btn.disabled = true);
-
-            const isCorrect = selectedOption === currentQ.answer;
-            const selectedButton = optionsContainer.querySelector(`[data-answer="${selectedOption}"]`);
-
-            // Registrar la respuesta para la retroalimentación final
-            answeredQuestions.push({
-                topic: currentQ.topic || 'General',
-                correct: isCorrect
-            });
-
-            // 1. Mostrar feedback
-            feedbackMessage.classList.remove('hidden', 'correct', 'incorrect');
-            
-            if (isCorrect) {
-                score++;
-                feedbackMessage.classList.add('correct');
-                feedbackMessage.innerHTML = `<span class="font-bold">¡Correcto!</span> ${currentQ.feedback}`;
-                selectedButton.classList.remove('bg-gray-100', 'hover:bg-tccr-secondary');
-                selectedButton.classList.add('bg-green-500', 'text-white', 'shadow-green-600/50');
-            } else {
-                feedbackMessage.classList.add('incorrect');
-                feedbackMessage.innerHTML = `<span class="font-bold">¡Incorrecto!</span> La respuesta correcta era: <span class="text-tccr-accent">${currentQ.answer}</span>. ${currentQ.feedback}`;
-                selectedButton.classList.remove('bg-gray-100', 'hover:bg-tccr-secondary');
-                selectedButton.classList.add('bg-tccr-accent', 'text-white', 'shadow-red-600/50');
-                
-                // Resaltar la respuesta correcta
-                const correctButton = optionsContainer.querySelector(`[data-answer="${currentQ.answer}"]`);
-                if (correctButton) {
-                    correctButton.classList.remove('bg-gray-100', 'hover:bg-tccr-secondary');
-                    correctButton.classList.add('bg-green-500', 'text-white', 'shadow-green-600/50');
-                }
-            }
-            
-            // 2. Actualizar puntaje y mostrar botón Siguiente
-            scoreDisplay.textContent = `Puntaje: ${score}`;
-            nextButton.classList.remove('hidden');
-            nextButton.disabled = false;
-        }
-
-        /**
-         * Pasa a la siguiente pregunta o finaliza la trivia.
-         */
-        nextButton.addEventListener('click', () => {
-            currentQuestionIndex++;
-            nextButton.disabled = true;
-            displayQuestion();
-        });
-
-        /**
-         * Genera el mensaje de retroalimentación basado en el puntaje, con lenguaje académico.
-         */
-        function getFeedbackMessage(score, total) {
-            const percentage = (score / total) * 100;
-
-            if (percentage === 100) {
-                return {
-                    message: "¡Rendimiento sobresaliente! Ha demostrado una comprensión completa de los pilares de la TCCR. Su Evaluación Cognitiva de la metateoría es rigurosa y su entendimiento del Cognosistema es impecable.",
-                    color: 'tccr-success',
-                };
-            } else if (percentage >= 80) {
-                return {
-                    message: "¡Excelente desempeño! El dominio de la TCCR es muy sólido. La mayoría de los conceptos clave, como la Ontología Sistémico-Relacional y los Memes Cognosistémicos, están bien internalizados. Un pequeño ajuste en los temas señalados le permitirá la maestría total.",
-                    color: 'tccr-primary',
-                };
-            } else if (percentage >= 60) {
-                return {
-                    message: "Resultado aceptable, pero necesita reforzar la interconexión conceptual. Existe una buena base, pero hay debilidades puntuales en temas específicos de la Epistemología Cognosistémica o la Estructura Narrativa. Es esencial profundizar en los temas señalados para un dominio más coherente.",
-                    color: 'tccr-warning',
-                };
-            } else {
-                return {
-                    message: "El puntaje sugiere la necesidad de revisar los fundamentos teóricos de la TCCR. Recomendamos estudiar con especial atención la Tripleta TCCR (Ontología, Epistemología, Metodología) y el rol del Cognosistema. Los conceptos aún no se han estructurado coherentemente.",
-                    color: 'tccr-accent',
-                };
-            }
-        }
-        
-        /**
-         * Analiza los temas para identificar puntos de refuerzo.
-         */
-        function analyzeReinforcementTopics() {
-            const topicScores = answeredQuestions.reduce((acc, q) => {
-                acc[q.topic] = acc[q.topic] || { correct: 0, total: 0 };
-                acc[q.topic].total++;
-                if (q.correct) {
-                    acc[q.topic].correct++;
-                }
-                return acc;
-            }, {});
-
-            const weakTopics = Object.keys(topicScores)
-                .filter(topic => topicScores[topic].correct / topicScores[topic].total < 0.6) // Menos del 60% correcto
-                .map(topic => topic.replace('Tripleta TCCR / ', ''));
-
-            return weakTopics.length > 0 ? weakTopics.join(', ') : 'Ninguno identificado (¡Excelente!).';
-        }
-
-
-        /**
-         * Muestra la pantalla final de resultados.
-         */
-        function showResults() {
-            quizContainer.classList.add('hidden');
-            resultsScreen.classList.remove('hidden');
-            
-            finalScoreDisplay.textContent = `${score}/${currentQuestions.length}`;
-            
-            const feedback = getFeedbackMessage(score, currentQuestions.length);
-            const reinforcement = analyzeReinforcementTopics();
-
-            performanceMessage.textContent = feedback.message;
-            reinforceTopics.textContent = reinforcement;
-            
-            const retroCard = document.getElementById('retro-card');
-            // Aseguramos que la clase de color sea dinámica para el borde
-            retroCard.className = `p-5 rounded-lg mb-8 text-left border-2 border-dashed border-tccr-${feedback.color.split('-').pop()}`; 
-            
-            // Esto solo cambia el color del texto si el color es primary, success, warning o accent
-            const colorClass = feedback.color.includes('tccr-') ? `text-${feedback.color}` : 'text-gray-700';
-            performanceMessage.classList.add(colorClass);
-        }
-
-        /**
-         * Reinicia la trivia con las preguntas existentes.
-         */
-        staticRestartButton.addEventListener('click', startQuiz);
-
-
-        /**
-         * Generación de Nuevas Preguntas con la API de Gemini.
-         * Implementa el requisito de "renovación constante".
-         */
-        renewQuestionsButton.addEventListener('click', async () => {
-            
-            // NOTA: Eliminamos la validación estricta de apiKey para evitar el mensaje de error en el editor.
-            // La llamada fallará si no hay clave, pero el bloque try/catch la manejará con un mensaje genérico.
-
-            // Mostrar estado de carga
-            renewText.textContent = 'Generando nuevas preguntas...';
-            renewIcon.classList.add('hidden');
-            loadingSpinner.classList.remove('hidden');
-            renewQuestionsButton.disabled = true;
-            
-            // --- CONTEXTO Y PROMPT PARA EL LLM ---
-            const systemPrompt = `Eres un experto académico riguroso en la "Teoría Cognosistémica de la Construcción Relacional Psicosocial Humana" (TCCR) de Jalin Simunovic (2025). Tu tarea es generar 10 preguntas de opción múltiple (4 opciones, 1 correcta) sobre los fundamentos de la TCCR para estudiantes universitarios de Trabajo Social. Las preguntas deben ser rigurosas y específicas sobre el Cognosistema, la Tripleta TCCR (Ontología, Epistemología, Metodología), los 8 Elementos Narrativos (cuestionando cada uno por separado), las 5 etapas del Ciclo Vital Narrativo, la Movilidad Narrativa (Ascendente, Descendente, Horizontal), las Fases de Cambio (Beta, Alfa, Delta), y los Memes Cognosistémicos. IMPORTANTE: No uses símbolos de formato Markdown, incluyendo el doble asterisco, en ningún campo del JSON. El formato de respuesta DEBE ser un array JSON que se ajuste estrictamente al esquema proporcionado.`;
-            
-            const userQuery = `Genera 10 nuevas preguntas de trivia sobre la TCCR, cubriendo todos los temas fundamentales de forma balanceada. Asegúrate de incluir preguntas sobre cada uno de los 8 elementos del sistema narrativo (e.g., Contenido Proposicional, Actitud Epistémica), el Ciclo Vital Narrativo completo (5 etapas) y los tipos de Movilidad Narrativa (Ascendente, Descendente, Horizontal).`;
-
-            // --- ESTRUCTURA JSON REQUERIDA PARA LA TRIVIA ---
-            const responseSchema = {
-                type: "ARRAY",
-                description: "Array de preguntas de la TCCR.",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        "question": { "type": "STRING", "description": "La pregunta sobre la TCCR." },
-                        "options": {
-                            "type": "ARRAY",
-                            "description": "Array con 4 opciones de respuesta, incluyendo la correcta.",
-                            "items": { "type": "STRING" }
-                        },
-                        "answer": { "type": "STRING", "description": "La opción de respuesta correcta (debe coincidir con uno de los textos en 'options')." },
-                        "feedback": { "type": "STRING", "description": "Una explicación concisa de por qué la respuesta es correcta, usando terminología TCCR." },
-                        "topic": { "type": "STRING", "description": "El tema central de la pregunta (usado para la retroalimentación)." }
+        const responseSchema = {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    "question": { "type": "STRING", "description": "La pregunta sobre la TCCR." },
+                    "options": {
+                        "type": "ARRAY",
+                        "items": { "type": "STRING" },
+                        "description": "Cuatro opciones de respuesta."
                     },
-                    "propertyOrdering": ["question", "options", "answer", "feedback", "topic"]
-                }
-            };
-            
+                    "answer": { "type": "STRING", "description": "La opción correcta." },
+                    "topic": { "type": "STRING", "description": "El constructo TCCR evaluado (e.g., 'Cognosistema', 'Fases de Cambio', 'Memes Cognosistémicos')." }
+                },
+                "propertyOrdering": ["question", "options", "answer", "topic"]
+            }
+        };
+
+        // --- Funciones de Utilidad ---
+
+        /**
+         * Simula un retraso con retroceso exponencial.
+         * @param {number} attempt El intento actual de la llamada (empezando en 0).
+         */
+        function backoffDelay(attempt) {
+            const delay = Math.min(1000 * Math.pow(2, attempt), 30000); // 1s, 2s, 4s... hasta 30s
+            return new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        /**
+         * Realiza la llamada a la API de Gemini con retroceso exponencial.
+         * @param {number} maxAttempts Número máximo de intentos.
+         * @returns {Promise<Array>} Un array de preguntas generadas.
+         */
+        async function fetchDynamicQuestions(maxAttempts = 3) {
+            if (!STATE.dynamicQuestionsEnabled) return staticQuestions;
+
+            STATE.loading = true;
+            STATE.statusMessage = 'Generando set de preguntas (Fase Delta)...';
+            render();
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
             const payload = {
                 contents: [{ parts: [{ text: userQuery }] }],
                 systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -525,76 +129,422 @@
                     responseSchema: responseSchema
                 }
             };
-            
-            // Usamos la variable apiKey, que debería ser completada por el entorno Canvas.
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            
-            // Lógica de Reintento con Retroceso Exponencial
-            const maxRetries = 3;
-            let currentDelay = 1000; // 1 segundo
-            let success = false;
-            let newQuestions = null;
 
-            for (let i = 0; i < maxRetries; i++) {
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 try {
+                    if (attempt > 0) {
+                        STATE.statusMessage = `Reintentando generación (Intento ${attempt + 1}/${maxAttempts})...`;
+                        render();
+                        await backoffDelay(attempt);
+                    }
+
                     const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        console.error('API call failed (not ok):', response.status, errorBody);
+                        if (response.status === 429) {
+                            // Rate Limit, try again
+                            continue;
+                        }
+                        throw new Error(`Error en la respuesta de la API: ${response.status}`);
+                    }
 
                     const result = await response.json();
-                    const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    
-                    if (jsonText) {
-                        newQuestions = JSON.parse(jsonText);
+                    const candidate = result.candidates?.[0];
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const jsonText = candidate.content.parts[0].text;
+                        const questions = JSON.parse(jsonText);
                         
-                        // Simple check to ensure we got an array of expected length
-                        if (newQuestions && Array.isArray(newQuestions) && newQuestions.length === totalQuestions) {
-                            success = true;
-                            break; // Salir del bucle si es exitoso
+                        if (Array.isArray(questions) && questions.length === 10 && questions.every(q => q.question && q.options && q.answer)) {
+                            console.log('Preguntas dinámicas generadas exitosamente.');
+                            return questions;
                         } else {
-                            throw new Error("El modelo no devolvió el número exacto de preguntas o el formato es inválido.");
+                            console.error('JSON Structure validation failed:', questions);
+                            // Forzar un nuevo intento si el conteo es incorrecto o la estructura falla
+                            continue; 
                         }
                     } else {
-                        throw new Error("Respuesta de la API incompleta o fallida (sin texto).");
+                        console.error('Respuesta de la API incompleta:', result);
+                        throw new Error("La IA no proporcionó contenido válido.");
                     }
                 } catch (error) {
-                    console.warn(`Intento ${i + 1} fallido. Reintentando en ${currentDelay / 1000}s. Error:`, error);
-                    if (i < maxRetries - 1) {
-                        await new Promise(resolve => setTimeout(resolve, currentDelay));
-                        currentDelay *= 2; // Duplicar el retraso
+                    console.error(`Falla en la generación dinámica (Intento ${attempt + 1}):`, error.message);
+                    if (attempt === maxAttempts - 1) {
+                        throw new Error(`Fallo definitivo en la generación dinámica. Causa: ${error.message}`);
                     }
                 }
             }
+            // Si todos los intentos fallan, se devuelve un array vacío para forzar el fallback
+            return [];
+        }
 
-            // --- PROCESAMIENTO FINAL ---
-            // Restaurar estado del botón
-            renewText.textContent = 'Realizar otra ronda de preguntas (Renovar Set)';
-            renewIcon.classList.remove('hidden');
-            loadingSpinner.classList.add('hidden');
-            renewQuestionsButton.disabled = false;
 
-            if (success && newQuestions) {
-                console.log("Nuevas preguntas generadas por el LLM:", newQuestions);
-                currentQuestions = newQuestions;
-                startQuiz(); // Iniciar la trivia con el nuevo set
-                // Usar custom modal en lugar de alert
-                displayCustomAlert('¡Éxito! Se han generado y cargado 10 nuevas preguntas sobre la TCCR desde el Cognosistema de la IA. ¡Comienza la nueva ronda!');
-            } else {
-                // Mensaje de fallback más suave
-                displayCustomAlert('Advertencia: No fue posible generar un set de 10 preguntas nuevas. La trivia se reiniciará con el set estático de respaldo.');
-                currentQuestions = originalQuestions; // Fallback
-                startQuiz();
+        // --- Lógica Principal de la Trivia ---
+
+        async function initializeAppAndAuth() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                await new Promise((resolve) => {
+                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                        if (!user) {
+                            // Intentar autenticación con el token custom
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                // Si no hay token, usar anónimo
+                                await signInAnonymously(auth);
+                            }
+                        }
+                        userId = auth.currentUser?.uid || crypto.randomUUID();
+                        isAuthReady = true;
+                        unsubscribe(); 
+                        resolve();
+                    });
+                });
+                
+                STATE.statusMessage = `Usuario ID: ${userId.substring(0, 8)}...`;
+                setupFirestoreListener();
+                
+            } catch (error) {
+                console.error("Error al inicializar Firebase o autenticar:", error);
+                STATE.statusMessage = 'Error al iniciar la base de datos.';
+                render();
             }
-        });
+        }
 
+        async function loadQuestions() {
+            STATE.loading = true;
+            STATE.statusMessage = 'Cargando preguntas...';
+            render();
 
-        // --- INICIALIZACIÓN ---
-        window.onload = startQuiz; 
+            try {
+                // Genera un ID de trivia único para forzar la renovación del set
+                STATE.triviaId = 'TCCR-Quiz-' + Date.now(); 
+                
+                const dynamicQuestions = await fetchDynamicQuestions();
+                if (dynamicQuestions.length === 10) {
+                    STATE.questions = dynamicQuestions;
+                    STATE.statusMessage = '¡Nuevo set de 10 preguntas dinámicas cargado! (Fase Delta exitosa)';
+                    STATE.dynamicQuestionsEnabled = true;
+                } else {
+                    // Fallback a preguntas estáticas (Fase Beta)
+                    STATE.questions = staticQuestions;
+                    STATE.dynamicQuestionsEnabled = false;
+                    STATE.statusMessage = 'Alerta: Fallo en la generación dinámica. Usando preguntas estáticas (Fase Beta).';
+                }
+                
+                STATE.questions = shuffleArray(STATE.questions);
+                STATE.currentQuestionIndex = 0;
+                STATE.score = 0;
+                STATE.showResult = false;
+                STATE.answered = false;
+                STATE.incorrectTopics = {};
+                STATE.loading = false;
+                
+            } catch (error) {
+                console.error("Error definitivo al cargar preguntas:", error);
+                STATE.questions = staticQuestions; // Fallback ante cualquier error
+                STATE.dynamicQuestionsEnabled = false;
+                STATE.loading = false;
+                STATE.statusMessage = `Error: ${error.message}. Usando preguntas estáticas.`;
+            }
+            render();
+        }
+
+        function setupFirestoreListener() {
+            if (!isAuthReady || !db || !userId) return;
+
+            // Nota: Este listener ahora solo se usa para cargar el progreso si el ID de la trivia fuera fijo, 
+            // pero mantenemos el guardado (saveProgress) para persistencia.
+            const docRef = doc(db, `artifacts/${appId}/users/${userId}/trivia_tccr_data`, 'last-progress');
+
+            onSnapshot(docRef, (docSnap) => {
+                // Solo renderiza para asegurar la UI del usuario
+                render();
+            }, (error) => {
+                console.error("Error al escuchar cambios en Firestore:", error);
+                STATE.statusMessage = 'Error al sincronizar datos de progreso.';
+                render();
+            });
+        }
+
+        async function saveProgress() {
+            if (!isAuthReady || !db || !userId) return;
+
+            // Guardamos el último progreso bajo un ID fijo para que el listener funcione, 
+            // aunque el set de preguntas cambie.
+            const docRef = doc(db, `artifacts/${appId}/users/${userId}/trivia_tccr_data`, 'last-progress');
+            const dataToSave = {
+                score: STATE.score,
+                currentQuestionIndex: STATE.currentQuestionIndex,
+                incorrectTopics: STATE.incorrectTopics,
+                showResult: STATE.showResult,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                await setDoc(docRef, dataToSave, { merge: true });
+                // console.log("Progreso guardado.");
+            } catch (error) {
+                console.error("Error al guardar progreso en Firestore:", error);
+            }
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function analyzeReinforcementTopics() {
+            // Convierte el mapa de conteo de errores en un array de pares [tema, conteo]
+            const topicsArray = Object.entries(STATE.incorrectTopics);
+            
+            // Ordena de mayor a menor número de errores
+            topicsArray.sort((a, b) => b[1] - a[1]);
+
+            if (topicsArray.length === 0) {
+                return "¡Excelente! No se registraron errores conceptuales. El Cognosistema de tu aprendizaje está en Fase Beta (Estabilidad).";
+            }
+
+            // Selecciona los 3 temas con más errores
+            const topTopics = topicsArray.slice(0, 3);
+
+            let message = "Análisis Cognosistémico de Refuerzo (Evaluación Cognitiva): ";
+            message += "Se detectan **Fricciones Narrativas** en los siguientes constructos, que requieren una **Reorganización Sistémica (Fase Delta)** de tus esquemas de significado:\n\n";
+
+            topTopics.forEach(([topic, count], index) => {
+                const topicAnalysis = getTopicAnalysis(topic);
+                message += `${index + 1}. **${topic}** (Errores: ${count}): ${topicAnalysis}\n`;
+            });
+            
+            message += "\nTu **Actitud Epistémica** debe ser de apertura. Debes revisar estos **Sistemas Narrativos** para lograr una **Movilidad Ascendente** en tu comprensión del **Cognosistema TCCR**.";
+
+            return message;
+        }
+
+        function getTopicAnalysis(topic) {
+            switch(topic.toLowerCase().trim()) {
+                case 'cognosistema/adscripción':
+                case 'cognosistema':
+                    return 'Revisa la adscripción (sociedad y tiempo) y la regla de NO asignarlo a un individuo aislado.';
+                case 'dinámica de cambio (alfa, beta, delta)':
+                case 'fases de cambio (alfa, beta, delta)':
+                    return 'Distingue claramente entre Estabilidad (Beta), Crisis (Alfa) y Transformación (Delta).';
+                case 'sistemas narrativos (8 elementos)':
+                case 'elementos del snc (núcleo vs cuerpo, propósito vs función)':
+                    return 'Recuerda las distinciones clave: Núcleo vs Cuerpo y Propósito vs Función. No colapses los elementos.';
+                case 'jerarquía narrativa/movilidad':
+                    return 'Asegúrate de entender qué factores causan Movilidad Ascendente (crisis, retroalimentación) o Descendente (rechazo, desacreditación).';
+                case 'memes cognosistémicos':
+                    return 'Clasifica la función de los memes: Consolidación, Fricción o Transición.';
+                case 'tripleta tccr':
+                    return 'Refuerza la Ontología (ser relacional), Epistemología (análisis cognosistémico) y Metodología (ecosistémica-narrativa).';
+                case 'ciclo vital narrativo':
+                    return 'Revisa las 5 etapas: Surgimiento, Desarrollo, Madurez, Declive/Transformación y Renovación.';
+                default:
+                    return 'Revisa la definición y rol dentro del marco metateórico de la TCCR.';
+            }
+        }
+        
+        // --- Handlers de Interfaz ---
+
+        window.handleAnswer = function(selectedOption) {
+            if (STATE.answered) return;
+
+            const currentQuestion = STATE.questions[STATE.currentQuestionIndex];
+            STATE.answered = true;
+
+            const button = event.target;
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            if (isCorrect) {
+                STATE.score++;
+                button.classList.add('bg-green-500', 'ring-green-700');
+                STATE.feedback = '¡Correcto! El sistema narrativo se consolida.';
+            } else {
+                button.classList.add('bg-red-500', 'ring-red-700');
+                STATE.feedback = `Incorrecto. La respuesta correcta era: ${currentQuestion.answer}.`;
+                
+                // Registro de error para el análisis
+                const topic = currentQuestion.topic || 'Sin Categoría';
+                STATE.incorrectTopics[topic] = (STATE.incorrectTopics[topic] || 0) + 1;
+
+                // Marcar la opción correcta en la UI
+                document.querySelectorAll('.option-button').forEach(btn => {
+                    if (btn.textContent.trim() === currentQuestion.answer.trim()) {
+                        btn.classList.add('bg-green-200', 'border-green-600');
+                    }
+                });
+            }
+
+            saveProgress();
+            render();
+
+            // Esperar y pasar a la siguiente
+            setTimeout(window.handleNext, 1500);
+        };
+
+        window.handleNext = function() {
+            if (STATE.currentQuestionIndex < STATE.questions.length - 1) {
+                STATE.currentQuestionIndex++;
+                STATE.answered = false;
+                STATE.feedback = '';
+            } else {
+                STATE.showResult = true;
+            }
+            saveProgress();
+            render();
+        };
+
+        window.handleRestart = function() {
+            // El reinicio implica un nuevo ciclo, forzando la carga de 10 preguntas nuevas
+            loadQuestions(); 
+        };
+
+        window.handleRefreshQuestions = function() {
+            loadQuestions();
+        };
+
+        // --- Renderización del UI ---
+
+        function render() {
+            const appDiv = document.getElementById('app');
+            const currentQuestion = STATE.questions[STATE.currentQuestionIndex];
+            let content;
+
+            if (STATE.loading) {
+                content = `
+                    <div class="flex flex-col items-center justify-center p-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+                        <p class="mt-4 text-xl text-orange-600 font-semibold">${STATE.statusMessage}</p>
+                        <p class="mt-2 text-gray-500 text-sm">Procesando petición en el Cognosistema...</p>
+                    </div>
+                `;
+            } else if (STATE.showResult) {
+                const totalQuestions = STATE.questions.length;
+                const percentage = ((STATE.score / totalQuestions) * 100).toFixed(0);
+                const reinforcementAnalysis = analyzeReinforcementTopics();
+
+                content = `
+                    <div class="flex flex-col items-center text-center p-6 space-y-6">
+                        <h2 class="text-3xl font-bold text-gray-800">Resultado Cognosistémico Final</h2>
+                        <div class="text-6xl font-extrabold text-orange-600">${percentage}%</div>
+                        <p class="text-xl text-gray-700">Tu **Score Narrativo** es: ${STATE.score} de ${totalQuestions} preguntas.</p>
+                        
+                        <div class="w-full max-w-lg bg-white p-6 rounded-xl shadow-lg border-2 border-orange-200 text-left">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Diagnóstico de Refuerzo</h3>
+                            <p class="whitespace-pre-wrap text-sm text-gray-600">${reinforcementAnalysis}</p>
+                        </div>
+
+                        <button onclick="handleRestart()" class="w-full sm:w-auto px-6 py-3 bg-orange-600 text-white text-lg font-semibold rounded-xl shadow-lg hover:bg-orange-700 transition duration-300 transform hover:scale-105">
+                            Reiniciar Evaluación (Nuevo Ciclo de Renovación)
+                        </button>
+                    </div>
+                `;
+            } else if (currentQuestion) {
+                const questionNumber = STATE.currentQuestionIndex + 1;
+                const totalQuestions = STATE.questions.length;
+                
+                const optionsHtml = currentQuestion.options.map(option => `
+                    <button 
+                        class="option-button w-full text-left p-4 my-2 text-gray-700 bg-white border border-gray-300 rounded-xl shadow-md transition duration-200 
+                               ${STATE.answered ? 'cursor-not-allowed opacity-70' : 'hover:bg-orange-50 hover:border-orange-400 transform hover:scale-[1.01]'} ring-2 ring-transparent"
+                        onclick="handleAnswer('${option.replace(/'/g, "\\'")}')"
+                        ${STATE.answered ? 'disabled' : ''}
+                    >
+                        ${option}
+                    </button>
+                `).join('');
+
+                content = `
+                    <div class="p-6 space-y-6">
+                        <div class="text-sm font-medium text-orange-600">
+                            Pregunta ${questionNumber} de ${totalQuestions} | Tópico: ${currentQuestion.topic || 'General'}
+                        </div>
+                        <div class="text-xl font-bold text-gray-900 bg-orange-50 p-4 rounded-xl shadow-inner border-l-4 border-orange-500">
+                            ${currentQuestion.question}
+                        </div>
+                        <div class="flex flex-col space-y-3">
+                            ${optionsHtml}
+                        </div>
+                        
+                        ${STATE.answered ? `
+                            <div class="mt-4 p-3 rounded-xl ${STATE.feedback.includes('Correcto') ? 'bg-green-100 border-green-500 text-green-800' : 'bg-red-100 border-red-500 text-red-800'} border-2 font-semibold">
+                                ${STATE.feedback}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                 content = `
+                    <div class="flex flex-col items-center justify-center p-8">
+                        <p class="text-xl text-gray-600 font-semibold">No hay preguntas disponibles.</p>
+                        <button onclick="handleRefreshQuestions()" class="mt-4 px-4 py-2 bg-orange-600 text-white rounded-lg">Generar Primer Set (Inicia el Ciclo)</button>
+                    </div>
+                `;
+            }
+
+            appDiv.innerHTML = `
+                <div class="min-h-screen bg-gray-100 font-['Inter'] flex items-center justify-center p-4 sm:p-8">
+                    <div class="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+                        
+                        <!-- Header y Estado -->
+                        <div class="bg-gray-800 text-white p-4 sm:p-6 flex justify-between items-center rounded-t-2xl">
+                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">
+                                TCCR: Evaluación Cognosistémica
+                            </h1>
+                            <div class="text-sm font-mono bg-gray-700 py-1 px-3 rounded-full">
+                                Score: ${STATE.score}
+                            </div>
+                        </div>
+
+                        <!-- Contenido Principal -->
+                        <div class="p-4 sm:p-6">
+                            ${content}
+                        </div>
+
+                        <!-- Footer y Mensajes de Estado -->
+                        <div class="p-4 sm:p-6 border-t bg-gray-50 rounded-b-2xl">
+                            <p class="text-xs text-gray-500 italic">${STATE.statusMessage}</p>
+                            ${!STATE.dynamicQuestionsEnabled && !STATE.loading && STATE.questions.length > 0 ? `
+                                <div class="mt-2 p-2 text-sm text-red-700 bg-red-100 rounded-lg font-medium border border-red-300">
+                                    ¡Modo Fallback Activo! Usando preguntas estáticas de **Fase Beta**. (No fue posible generar 10 nuevas).
+                                </div>
+                            ` : ''}
+                            ${!STATE.loading && STATE.questions.length > 0 && !STATE.showResult ? `
+                                <button onclick="handleRefreshQuestions()" class="mt-4 px-4 py-2 text-sm bg-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-300 transition duration-200">
+                                    Generar Nuevo Set de 10 (Fase Delta)
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Inicialización
+        window.onload = async function() {
+            await initializeAppAndAuth();
+            loadQuestions();
+        };
 
     </script>
+</head>
+<body>
+    <div id="app">
+        <!-- El contenido será renderizado por JavaScript -->
+    </div>
 </body>
 </html>
